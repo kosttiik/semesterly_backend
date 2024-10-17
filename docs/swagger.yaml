@@ -1,0 +1,24 @@
+basePath: /api/v1
+host: localhost:8080
+info:
+  contact: {}
+  description: API для управления расписанием учебных занятий
+  title: Автоматизированная система по ведению расписания учебных занятий
+  version: "1.0"
+paths:
+  /hello:
+    get:
+      consumes:
+      - application/json
+      description: Проверяет, работает ли сервер и есть ли подключение к базе данных
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Hello, World!
+          schema:
+            type: string
+      summary: Проверка подключения
+      tags:
+      - Hello
+swagger: "2.0"
