@@ -8,7 +8,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/joho/godotenv"
 	_ "github.com/kosttiik/semesterly_backend/docs" // Swagger documentation
 	"github.com/kosttiik/semesterly_backend/internal/pkg/app"
 
@@ -23,9 +22,9 @@ import (
 func main() {
 	log.Println("Application started!")
 
-	if err := godotenv.Load(); err != nil {
-		log.Println("Failed to load .env file, trying to continue...")
-	}
+	// if err := godotenv.Load(); err != nil {
+	// 	log.Println("Failed to load .env file, trying to continue...")
+	// }
 
 	// Создаем новое приложение
 	a, err := app.New()
