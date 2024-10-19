@@ -2,6 +2,7 @@ package app
 
 import (
 	"errors"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -11,7 +12,7 @@ import (
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 
-	_ "github.com/kosttiik/semesterly_backend/docs" // Swagger
+	_ "github.com/kosttiik/semesterly_backend/docs" // Swagger documentation
 	echoSwagger "github.com/swaggo/echo-swagger"
 )
 
@@ -19,14 +20,21 @@ type App struct {
 	DB *gorm.DB
 }
 
-var ErrMissingDatabaseURL = errors.New("missing DATABASE_URL environment variable")
+var ErrMissingDatabaseConfig = errors.New("missing one or more required database environment variables")
 
-// New инициализирует приложение с подключением к БД
+// Инициализация приложения с подключением к БД
 func New() (*App, error) {
-	dsn := os.Getenv("DATABASE_URL")
-	if dsn == "" {
-		return nil, ErrMissingDatabaseURL
+	dbName := os.Getenv("DB_NAME")
+	dbUser := os.Getenv("DB_USER")
+	dbPassword := os.Getenv("DB_PASSWORD")
+	dbHost := os.Getenv("DB_HOST")
+	dbPort := os.Getenv("DB_PORT")
+
+	if dbName == "" || dbUser == "" || dbPassword == "" || dbHost == "" || dbPort == "" {
+		return nil, ErrMissingDatabaseConfig
 	}
+
+	dsn := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s sslmode=disable", dbHost, dbUser, dbPassword, dbName, dbPort)
 
 	var db *gorm.DB
 	var err error
@@ -37,9 +45,9 @@ func New() (*App, error) {
 		if err == nil {
 			break
 		}
-
-		log.Println("Waiting for database to be ready for use...")
-		time.Sleep(2 * time.Second)
+		waitTime := time.Duration(i+1) * time.Second
+		log.Printf("Waiting for database... retrying in %v", waitTime)
+		time.Sleep(waitTime)
 	}
 
 	if err != nil {
@@ -54,10 +62,10 @@ func New() (*App, error) {
 }
 
 func (a *App) RegisterRoutes(e *echo.Echo) {
-	e.GET("/api/v1/hello", a.helloHandler)
-
-	// Swagger
+	// Swagger documentation
 	e.GET("/swagger/*", echoSwagger.WrapHandler)
+
+	e.GET("/api/v1/hello", a.helloHandler)
 }
 
 // helloHandler - обработчик для теста работы сервера
