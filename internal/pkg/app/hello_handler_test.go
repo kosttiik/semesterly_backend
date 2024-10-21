@@ -15,9 +15,8 @@ func TestHelloHandler(t *testing.T) {
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
 
-	app := &App{} // Или инициализируйте с необходимыми зависимостями
+	app := &App{}
 
-	// Вызываем обработчик
 	if assert.NoError(t, app.helloHandler(c)) {
 		assert.Equal(t, http.StatusOK, rec.Code)
 		assert.Equal(t, "Hello, World! Connected to the database successfully.", rec.Body.String())

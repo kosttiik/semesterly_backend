@@ -12,7 +12,6 @@ import (
 	"github.com/kosttiik/semesterly_backend/internal/pkg/app"
 
 	"github.com/labstack/echo/v4"
-	"github.com/labstack/echo/v4/middleware"
 )
 
 // @title Автоматизированная система по ведению расписания учебных занятий
@@ -29,14 +28,8 @@ func main() {
 		log.Fatalf("Failed to initialize the app: %v", err)
 	}
 
-	// Создаем Echo инстанс
 	e := echo.New()
 
-	// Middleware
-	e.Use(middleware.Logger())
-	e.Use(middleware.Recover())
-
-	// Маршруты
 	a.RegisterRoutes(e)
 
 	// Запуск сервера
@@ -56,7 +49,7 @@ func handleShutdown(e *echo.Echo) {
 	<-quit
 
 	log.Println("Shutting down server...")
-	if err := e.Shutdown(context.TODO()); err != nil {
+	if err := e.Shutdown(context.Background()); err != nil {
 		log.Fatalf("Error shutting down server: %v", err)
 	}
 
