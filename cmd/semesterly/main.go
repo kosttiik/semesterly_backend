@@ -22,10 +22,6 @@ import (
 func main() {
 	log.Println("Application started!")
 
-	// if err := godotenv.Load(); err != nil {
-	// 	log.Println("Failed to load .env file, trying to continue...")
-	// }
-
 	// Создаем новое приложение
 	a, err := app.New()
 	if err != nil {
