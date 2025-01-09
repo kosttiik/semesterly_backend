@@ -4,15 +4,16 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"net/http"
 	"os"
 	"time"
 
 	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v4/middleware"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 
 	_ "github.com/kosttiik/semesterly_backend/docs" // Swagger documentation
+	"github.com/kosttiik/semesterly_backend/internal/handlers"
 	echoSwagger "github.com/swaggo/echo-swagger"
 )
 
@@ -62,20 +63,20 @@ func New() (*App, error) {
 }
 
 func (a *App) RegisterRoutes(e *echo.Echo) {
+	// Logger запросов в терминал
+	e.Use(middleware.LoggerWithConfig(middleware.LoggerConfig{
+		Format: "⇨ ${time_custom} | ${status} | ${method} ${uri} | ${remote_ip} | ${latency_human}" +
+			"\n   Error: ${error}\n",
+		CustomTimeFormat: "2006/01/02 - 15:04:05",
+		Output:           os.Stdout,
+	}))
+
+	h := &handlers.App{
+		DB: a.DB,
+	}
+
 	// Swagger documentation
 	e.GET("/swagger/*", echoSwagger.WrapHandler)
 
-	e.GET("/api/v1/hello", a.helloHandler)
-}
-
-// helloHandler - обработчик для теста работы сервера
-// @Summary Проверка подключения
-// @Description Проверяет, работает ли сервер и есть ли подключение к базе данных
-// @Tags Hello
-// @Accept  json
-// @Produce  json
-// @Success 200 {string} string "Hello, World!"
-// @Router /hello [get]
-func (a *App) helloHandler(c echo.Context) error {
-	return c.String(http.StatusOK, "Hello, World! Connected to the database successfully.")
+	e.GET("/api/v1/hello", h.HelloHandler)
 }

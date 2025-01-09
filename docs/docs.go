@@ -15,7 +15,7 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
-        "/hello": {
+        "/api/v1/hello": {
             "get": {
                 "description": "Проверяет, работает ли сервер и есть ли подключение к базе данных",
                 "consumes": [

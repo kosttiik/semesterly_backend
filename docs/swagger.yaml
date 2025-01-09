@@ -6,7 +6,7 @@ info:
   title: Автоматизированная система по ведению расписания учебных занятий
   version: "1.0"
 paths:
-  /hello:
+  /api/v1/hello:
     get:
       consumes:
       - application/json
