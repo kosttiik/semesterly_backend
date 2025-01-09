@@ -14,6 +14,7 @@ import (
 
 	_ "github.com/kosttiik/semesterly_backend/docs" // Swagger documentation
 	"github.com/kosttiik/semesterly_backend/internal/handlers"
+	"github.com/kosttiik/semesterly_backend/internal/models"
 	echoSwagger "github.com/swaggo/echo-swagger"
 )
 
@@ -57,6 +58,12 @@ func New() (*App, error) {
 
 	log.Println("Connected to the database successfully!")
 
+	// Миграция БД
+	err = db.AutoMigrate(&models.ScheduleItem{}, &models.Exam{})
+	if err != nil {
+		return nil, err
+	}
+
 	return &App{
 		DB: db,
 	}, nil
@@ -79,4 +86,5 @@ func (a *App) RegisterRoutes(e *echo.Echo) {
 	e.GET("/swagger/*", echoSwagger.WrapHandler)
 
 	e.GET("/api/v1/hello", h.HelloHandler)
+	e.POST("/api/v1/insert-data", h.InsertDataHandler)
 }
