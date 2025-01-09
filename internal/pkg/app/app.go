@@ -24,6 +24,11 @@ type App struct {
 
 var ErrMissingDatabaseConfig = errors.New("missing one or more required database environment variables")
 
+func customTimeFormat() string {
+	loc, _ := time.LoadLocation("Europe/Moscow")
+	return time.Now().In(loc).Format("02.01.2006 - 15:04:05")
+}
+
 // Инициализация приложения с подключением к БД
 func New() (*App, error) {
 	dbName := os.Getenv("DB_NAME")
@@ -74,7 +79,7 @@ func (a *App) RegisterRoutes(e *echo.Echo) {
 	e.Use(middleware.LoggerWithConfig(middleware.LoggerConfig{
 		Format: "⇨ ${time_custom} | ${status} | ${method} ${uri} | ${remote_ip} | ${latency_human}" +
 			"\n   Error: ${error}\n",
-		CustomTimeFormat: "02.01.2006 - 15:04:05",
+		CustomTimeFormat: customTimeFormat(),
 		Output:           os.Stdout,
 	}))
 
