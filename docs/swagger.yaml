@@ -1,5 +1,10 @@
+basePath: /api/v1
+host: localhost:8080
 info:
   contact: {}
+  description: API для управления расписанием учебных занятий
+  title: Автоматизированная система по ведению расписания учебных занятий
+  version: "1.0"
 paths:
   /api/v1/hello:
     get:

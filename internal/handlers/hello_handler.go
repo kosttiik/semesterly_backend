@@ -5,6 +5,8 @@ import (
 
 	"github.com/labstack/echo/v4"
 	"gorm.io/gorm"
+
+	_ "github.com/kosttiik/semesterly_backend/docs" // Swagger documentation
 )
 
 type App struct {

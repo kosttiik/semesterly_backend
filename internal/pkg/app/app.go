@@ -76,7 +76,7 @@ func (a *App) RegisterRoutes(e *echo.Echo) {
 	}
 
 	// Swagger documentation
-	e.GET("/swagger*", echoSwagger.WrapHandler)
+	e.GET("/swagger/*", echoSwagger.WrapHandler)
 
 	e.GET("/api/v1/hello", h.HelloHandler)
 }
