@@ -64,7 +64,12 @@ func New() (*App, error) {
 
 func (a *App) RegisterRoutes(e *echo.Echo) {
 	// Logger запросов в терминал
-	e.Use(middleware.Logger())
+	e.Use(middleware.LoggerWithConfig(middleware.LoggerConfig{
+		Format: "⇨ ${time_custom} | ${status} | ${method} ${uri} | ${remote_ip} | ${latency_human}" +
+			"\n   Error: ${error}\n",
+		CustomTimeFormat: "2006/01/02 - 15:04:05",
+		Output:           os.Stdout,
+	}))
 
 	h := &handlers.App{
 		DB: a.DB,
