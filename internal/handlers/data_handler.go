@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"io"
 	"log"
+	"math/rand"
 	"net/http"
 	"strings"
 	"sync"
@@ -113,7 +114,7 @@ func (a *App) InsertDataHandler(c echo.Context) error {
 			}
 
 			// Задержка для снижения нагрузки на API МГТУ (возможно обход блокировки...)
-			time.Sleep(5 * time.Second)
+			time.Sleep(time.Duration(rand.Intn(5)+1) * time.Second)
 		}(uuid)
 	}
 
@@ -124,6 +125,24 @@ func (a *App) InsertDataHandler(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, map[string]string{"message": "Data inserted successfully"})
+}
+
+func (a *App) GetDataHandler(c echo.Context) error {
+	var scheduleItems []models.ScheduleItem
+	var exams []models.Exam
+
+	if err := a.DB.Find(&scheduleItems).Error; err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to fetch schedule items"})
+	}
+
+	if err := a.DB.Find(&exams).Error; err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to fetch exams"})
+	}
+
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"schedule_items": scheduleItems,
+		"exams":          exams,
+	})
 }
 
 func extractGroupUUIDs(children []models.Child) []string {

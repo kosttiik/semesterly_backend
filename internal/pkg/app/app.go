@@ -74,7 +74,7 @@ func (a *App) RegisterRoutes(e *echo.Echo) {
 	e.Use(middleware.LoggerWithConfig(middleware.LoggerConfig{
 		Format: "⇨ ${time_custom} | ${status} | ${method} ${uri} | ${remote_ip} | ${latency_human}" +
 			"\n   Error: ${error}\n",
-		CustomTimeFormat: "2006/01/02 - 15:04:05",
+		CustomTimeFormat: "02.01.2006 - 15:04:05",
 		Output:           os.Stdout,
 	}))
 
@@ -87,4 +87,5 @@ func (a *App) RegisterRoutes(e *echo.Echo) {
 
 	e.GET("/api/v1/hello", h.HelloHandler)
 	e.POST("/api/v1/insert-data", h.InsertDataHandler)
+	e.GET("/api/v1/get-data", h.GetDataHandler)
 }
