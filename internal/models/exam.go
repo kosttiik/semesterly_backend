@@ -6,8 +6,8 @@ type Exam struct {
 	ExamTime   string `json:"examTime"`
 	LastName   string `json:"lastName"`
 	FirstName  string `json:"firstName"`
-	Discipline string `json:"discipline"`
 	MiddleName string `json:"middleName"`
+	Discipline string `json:"discipline"`
 }
 
 type ExamResponse struct {
