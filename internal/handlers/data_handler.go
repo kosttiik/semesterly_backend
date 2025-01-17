@@ -16,26 +16,35 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
+// fetchJSON выполняет HTTP-запрос и декодирует JSON-ответ в переданную структуру
 func fetchJSON(url string, target interface{}) error {
 	resp, err := http.Get(url)
 	if err != nil {
+		log.Printf("Error fetching URL %s: %v", url, err)
 		return err
 	}
 	defer resp.Body.Close()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
+		log.Printf("Error reading response body: %v", err)
 		return err
 	}
 
 	if len(body) == 0 || strings.HasPrefix(string(body), "<") {
-		return nil // Пропуск пустых и невалидных ответов
+		log.Printf("Empty or invalid response body from URL %s", url)
+		return nil
 	}
 
-	return json.Unmarshal(body, target)
+	if err := json.Unmarshal(body, target); err != nil {
+		log.Printf("Error unmarshalling JSON: %v", err)
+		return err
+	}
+
+	return nil
 }
 
-// Вставка данных в БД
+// InsertDataHandler обрабатывает вставку данных в базу данных
 func (a *App) InsertDataHandler(c echo.Context) error {
 	structureURL := "https://lks.bmstu.ru/lks-back/api/v1/structure"
 	var structure models.Structure
@@ -51,7 +60,7 @@ func (a *App) InsertDataHandler(c echo.Context) error {
 	var wg sync.WaitGroup
 	var mu sync.Mutex
 	errors := make([]string, 0)
-	sem := make(chan struct{}, 8) // Лимит одновременно работающих горутин
+	sem := make(chan struct{}, 8)
 
 	requestInterval := time.NewTicker(500 * time.Millisecond)
 	defer requestInterval.Stop()
@@ -80,12 +89,13 @@ func (a *App) InsertDataHandler(c echo.Context) error {
 	return c.JSON(http.StatusOK, map[string]string{"message": "Data inserted successfully"})
 }
 
+// processGroupData обрабатывает данные расписания и экзаменов для группы
 func (a *App) processGroupData(uuid string, mu *sync.Mutex, errors *[]string) error {
 	var schedule models.Schedule
 	var exams models.ExamResponse
 
-	scheduleURL := "https://lks.bmstu.ru/lks-back/api/v1/schedules/groups/" + uuid + "/public"
-	examURL := "https://lks.bmstu.ru/lks-back/api/v1/schedules/exams/" + uuid + "/public"
+	scheduleURL := fmt.Sprintf("https://lks.bmstu.ru/lks-back/api/v1/schedules/groups/%s/public", uuid)
+	examURL := fmt.Sprintf("https://lks.bmstu.ru/lks-back/api/v1/schedules/exams/%s/public", uuid)
 
 	if err := fetchJSON(scheduleURL, &schedule); err != nil {
 		appendError(mu, errors, fmt.Sprintf("Failed to fetch schedule for group %s", uuid))
@@ -106,9 +116,17 @@ func (a *App) processGroupData(uuid string, mu *sync.Mutex, errors *[]string) er
 	return nil
 }
 
+// insertToDatabase вставляет данные расписания в базу данных с проверкой на дублирование
 func (a *App) insertToDatabase(scheduleItems []models.ScheduleItem, examItems []models.Exam, uuid string, mu *sync.Mutex, errors *[]string) error {
 	for _, item := range scheduleItems {
-		if err := a.DB.Create(&item).Error; err != nil {
+		if err := a.DB.Where(models.ScheduleItem{
+			Day:       item.Day,
+			Time:      item.Time,
+			Week:      item.Week,
+			Stream:    item.Stream,
+			StartTime: item.StartTime,
+			EndTime:   item.EndTime,
+		}).FirstOrCreate(&item).Error; err != nil {
 			appendError(mu, errors, fmt.Sprintf("Failed to insert schedule item for group %s", uuid))
 			return err
 		}
@@ -116,7 +134,12 @@ func (a *App) insertToDatabase(scheduleItems []models.ScheduleItem, examItems []
 	}
 
 	for _, item := range examItems {
-		if err := a.DB.Create(&item).Error; err != nil {
+		if err := a.DB.Where(models.Exam{
+			Room:       item.Room,
+			ExamDate:   item.ExamDate,
+			ExamTime:   item.ExamTime,
+			Discipline: item.Discipline,
+		}).FirstOrCreate(&item).Error; err != nil {
 			appendError(mu, errors, fmt.Sprintf("Failed to insert exam item for group %s", uuid))
 			return err
 		}
@@ -126,26 +149,7 @@ func (a *App) insertToDatabase(scheduleItems []models.ScheduleItem, examItems []
 	return nil
 }
 
-// Получение расписания из БД
-func (a *App) GetDataHandler(c echo.Context) error {
-	var scheduleItems []models.ScheduleItem
-	var exams []models.Exam
-
-	if err := a.DB.Find(&scheduleItems).Error; err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to fetch schedule items"})
-	}
-
-	if err := a.DB.Find(&exams).Error; err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to fetch exams"})
-	}
-
-	return c.JSON(http.StatusOK, map[string]interface{}{
-		"schedule_items": scheduleItems,
-		"exams":          exams,
-	})
-}
-
-// Извлечение UUID групп из структуры
+// extractGroupUUIDs извлекает UUID всех групп из структуры
 func extractGroupUUIDs(children []models.Child) []string {
 	var uuids []string
 	for _, child := range children {
@@ -159,41 +163,59 @@ func extractGroupUUIDs(children []models.Child) []string {
 	return uuids
 }
 
+// appendError добавляет сообщение об ошибке в список ошибок
 func appendError(mu *sync.Mutex, errors *[]string, message string) {
 	mu.Lock()
 	defer mu.Unlock()
 	*errors = append(*errors, message)
 }
 
+// WriteScheduleToFile сохраняет расписание в CSV файл
 func (a *App) WriteScheduleToFile(c echo.Context) error {
 	var scheduleItems []models.ScheduleItem
-	if err := a.DB.Find(&scheduleItems).Error; err != nil {
+
+	// Загрузка данных с подгрузкой аудиторий и преподавателей
+	if err := a.DB.Preload("Teachers").Preload("Audiences").Find(&scheduleItems).Error; err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to fetch schedule items"})
 	}
 
 	filePath := "/usr/src/semesterly/data/schedule.csv"
+	if err := writeToCSV(filePath, scheduleItems); err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to write schedule to file"})
+	}
+
+	return c.JSON(http.StatusOK, map[string]string{"message": "Schedule written to file successfully"})
+}
+
+// writeToCSV записывает данные расписания в CSV файл
+func writeToCSV(filePath string, scheduleItems []models.ScheduleItem) error {
 	file, err := os.Create(filePath)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to create file"})
+		return err
 	}
 	defer file.Close()
 
 	writer := csv.NewWriter(file)
 	defer writer.Flush()
 
+	// Заголовки CSV
 	writer.Write([]string{"Day", "Time", "Week", "Stream", "EndTime", "StartTime", "Discipline", "Permission", "Teachers", "Audiences"})
+
 	for _, item := range scheduleItems {
+		// Форматирование списка преподавателей
 		teachers := make([]string, len(item.Teachers))
 		for i, teacher := range item.Teachers {
 			teachers[i] = fmt.Sprintf("%s %s %s", teacher.LastName, teacher.FirstName, teacher.MiddleName)
 		}
 
+		// Форматирование списка аудиторий
 		audiences := make([]string, len(item.Audiences))
 		for i, audience := range item.Audiences {
 			audiences[i] = audience.Name
 		}
 
-		writer.Write([]string{
+		// Запись строки в CSV
+		err := writer.Write([]string{
 			fmt.Sprintf("%d", item.Day),
 			fmt.Sprintf("%d", item.Time),
 			item.Week,
@@ -205,39 +227,22 @@ func (a *App) WriteScheduleToFile(c echo.Context) error {
 			strings.Join(teachers, "; "),
 			strings.Join(audiences, "; "),
 		})
+		if err != nil {
+			return fmt.Errorf("failed to write to CSV: %w", err)
+		}
 	}
 
-	return c.JSON(http.StatusOK, map[string]string{"message": "Schedule written to file successfully"})
+	return nil
 }
 
-func (a *App) WriteExamsToFile(c echo.Context) error {
-	var exams []models.Exam
-	if err := a.DB.Find(&exams).Error; err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to fetch exams"})
+// GetData отправляет JSON со всем расписанием из базы данных
+func (a *App) GetDataHandler(c echo.Context) error {
+	var scheduleItems []models.ScheduleItem
+
+	// Загрузка данных с подгрузкой аудиторий и преподавателей
+	if err := a.DB.Preload("Teachers").Preload("Audiences").Find(&scheduleItems).Error; err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to fetch schedule items"})
 	}
 
-	filePath := "/usr/src/semesterly/data/exams.csv"
-	file, err := os.Create(filePath)
-	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to create file"})
-	}
-	defer file.Close()
-
-	writer := csv.NewWriter(file)
-	defer writer.Flush()
-
-	writer.Write([]string{"Room", "ExamDate", "ExamTime", "LastName", "FirstName", "MiddleName", "Discipline"})
-	for _, exam := range exams {
-		writer.Write([]string{
-			exam.Room,
-			exam.ExamDate,
-			exam.ExamTime,
-			exam.LastName,
-			exam.FirstName,
-			exam.MiddleName,
-			exam.Discipline,
-		})
-	}
-
-	return c.JSON(http.StatusOK, map[string]string{"message": "Exams written to file successfully"})
+	return c.JSON(http.StatusOK, scheduleItems)
 }
