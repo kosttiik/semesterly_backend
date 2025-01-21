@@ -21,4 +21,50 @@ paths:
       summary: Проверка подключения
       tags:
       - Hello
+  /api/v1/insert-data:
+    post:
+      consumes:
+      - application/json
+      description: Вставляет данные расписания и экзаменов в базу данных
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 'message: Data inserted successfully'
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: 'errors: [error messages]'
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Вставка данных
+      tags:
+      - InsertData
+  /api/v1/write-schedule:
+    post:
+      consumes:
+      - application/json
+      description: Сохраняет данные расписания в CSV файл
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 'message: Schedule written to file successfully'
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: 'error: Failed to fetch schedule items" "error: Failed to write
+            schedule to file'
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Сохранение расписания
+      tags:
+      - WriteSchedule
 swagger: "2.0"

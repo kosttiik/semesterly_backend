@@ -31,6 +31,74 @@
                     }
                 }
             }
+        },
+        "/api/v1/insert-data": {
+            "post": {
+                "description": "Вставляет данные расписания и экзаменов в базу данных",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "InsertData"
+                ],
+                "summary": "Вставка данных",
+                "responses": {
+                    "200": {
+                        "description": "message: Data inserted successfully",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "errors: [error messages]",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/write-schedule": {
+            "post": {
+                "description": "Сохраняет данные расписания в CSV файл",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "WriteSchedule"
+                ],
+                "summary": "Сохранение расписания",
+                "responses": {
+                    "200": {
+                        "description": "message: Schedule written to file successfully",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "error: Failed to fetch schedule items\" \"error: Failed to write schedule to file",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 }

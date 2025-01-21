@@ -89,5 +89,5 @@ func (a *App) RegisterRoutes(e *echo.Echo) {
 	e.POST("/api/v1/insert-data", h.InsertDataHandler)
 	e.GET("/api/v1/get-data", h.GetDataHandler)
 
-	e.GET("/api/v1/write-schedule", h.WriteScheduleToFile)
+	e.GET("/api/v1/write-schedule", h.WriteScheduleToFileHandler)
 }
