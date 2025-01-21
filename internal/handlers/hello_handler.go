@@ -17,8 +17,8 @@ type App struct {
 // @Summary Проверка подключения
 // @Description Проверяет, работает ли сервер и есть ли подключение к базе данных
 // @Tags Hello
-// @Accept  json
-// @Produce  json
+// @Accept json
+// @Produce json
 // @Success 200 {string} string "Hello, World!"
 // @Router /api/v1/hello [get]
 func (a *App) HelloHandler(c echo.Context) error {

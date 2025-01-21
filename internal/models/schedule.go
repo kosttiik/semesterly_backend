@@ -1,6 +1,8 @@
 package models
 
-import "gorm.io/gorm"
+import (
+	"time"
+)
 
 type Schedule struct {
 	Data struct {
@@ -12,7 +14,10 @@ type Schedule struct {
 }
 
 type ScheduleItem struct {
-	gorm.Model
+	ID         uint       `json:"id" gorm:"primarykey"`
+	CreatedAt  time.Time  `json:"created_at"`
+	UpdatedAt  time.Time  `json:"updated_at"`
+	DeletedAt  time.Time  `json:"deleted_at,omitempty" gorm:"index"`
 	Day        int        `json:"day"`
 	Time       int        `json:"time"`
 	Week       string     `json:"week"`
@@ -24,26 +29,36 @@ type ScheduleItem struct {
 	StartTime  string     `json:"startTime"`
 	Discipline Discipline `json:"discipline" gorm:"embedded"`
 	Permission string     `json:"permission"`
+	GroupUUID  string     `json:"group_uuid"`
 }
 
 type Group struct {
-	gorm.Model
-	Name string `json:"name"`
-	UUID string `json:"uuid"`
+	ID        uint      `json:"id" gorm:"primarykey"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+	DeletedAt time.Time `json:"deleted_at,omitempty" gorm:"index"`
+	Name      string    `json:"name"`
+	UUID      string    `json:"uuid"`
 }
 
 type Teacher struct {
-	gorm.Model
-	UUID       string `json:"uuid"`
-	LastName   string `json:"lastName"`
-	FirstName  string `json:"firstName"`
-	MiddleName string `json:"middleName"`
+	ID         uint      `json:"id" gorm:"primarykey"`
+	CreatedAt  time.Time `json:"created_at"`
+	UpdatedAt  time.Time `json:"updated_at"`
+	DeletedAt  time.Time `json:"deleted_at,omitempty" gorm:"index"`
+	UUID       string    `json:"uuid"`
+	LastName   string    `json:"lastName"`
+	FirstName  string    `json:"firstName"`
+	MiddleName string    `json:"middleName"`
 }
 
 type Audience struct {
-	gorm.Model
-	Name string `json:"name"`
-	UUID string `json:"uuid"`
+	ID        uint      `json:"id" gorm:"primarykey"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+	DeletedAt time.Time `json:"deleted_at,omitempty" gorm:"index"`
+	Name      string    `json:"name"`
+	UUID      string    `json:"uuid"`
 }
 
 type Discipline struct {
