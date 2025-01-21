@@ -7,7 +7,15 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-// GetData отправляет JSON со всем расписанием из базы данных
+// GetDataHandler отправляет JSON со всем расписанием из базы данных
+// @Summary Получение расписания
+// @Description Возвращает данные расписания из базы данных в формате JSON
+// @Tags GetData
+// @Accept json
+// @Produce json
+// @Success 200 {array} models.ScheduleItem "Список элементов расписания"
+// @Failure 500 {object} map[string]string "error: Failed to fetch schedule items"
+// @Router /api/v1/get-data [get]
 func (a *App) GetDataHandler(c echo.Context) error {
 	var scheduleItems []models.ScheduleItem
 

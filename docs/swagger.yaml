@@ -1,4 +1,106 @@
 basePath: /api/v1
+definitions:
+  models.Audience:
+    properties:
+      created_at:
+        type: string
+      deleted_at:
+        type: string
+      id:
+        type: integer
+      name:
+        type: string
+      updated_at:
+        type: string
+      uuid:
+        type: string
+    type: object
+  models.Discipline:
+    properties:
+      abbr:
+        type: string
+      actType:
+        type: string
+      fullName:
+        type: string
+      shortName:
+        type: string
+    type: object
+  models.Group:
+    properties:
+      created_at:
+        type: string
+      deleted_at:
+        type: string
+      id:
+        type: integer
+      name:
+        type: string
+      updated_at:
+        type: string
+      uuid:
+        type: string
+    type: object
+  models.ScheduleItem:
+    properties:
+      audiences:
+        items:
+          $ref: '#/definitions/models.Audience'
+        type: array
+      created_at:
+        type: string
+      day:
+        type: integer
+      deleted_at:
+        type: string
+      discipline:
+        $ref: '#/definitions/models.Discipline'
+      endTime:
+        type: string
+      group_uuid:
+        type: string
+      groups:
+        items:
+          $ref: '#/definitions/models.Group'
+        type: array
+      id:
+        type: integer
+      permission:
+        type: string
+      startTime:
+        type: string
+      stream:
+        type: string
+      teachers:
+        items:
+          $ref: '#/definitions/models.Teacher'
+        type: array
+      time:
+        type: integer
+      updated_at:
+        type: string
+      week:
+        type: string
+    type: object
+  models.Teacher:
+    properties:
+      created_at:
+        type: string
+      deleted_at:
+        type: string
+      firstName:
+        type: string
+      id:
+        type: integer
+      lastName:
+        type: string
+      middleName:
+        type: string
+      updated_at:
+        type: string
+      uuid:
+        type: string
+    type: object
 host: localhost:8080
 info:
   contact: {}
@@ -6,6 +108,29 @@ info:
   title: Автоматизированная система по ведению расписания учебных занятий
   version: "1.0"
 paths:
+  /api/v1/get-data:
+    get:
+      consumes:
+      - application/json
+      description: Возвращает данные расписания из базы данных в формате JSON
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Список элементов расписания
+          schema:
+            items:
+              $ref: '#/definitions/models.ScheduleItem'
+            type: array
+        "500":
+          description: 'error: Failed to fetch schedule items'
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Получение расписания
+      tags:
+      - GetData
   /api/v1/hello:
     get:
       consumes:

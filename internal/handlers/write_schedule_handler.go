@@ -48,7 +48,7 @@ func writeToCSV(filePath string, scheduleItems []models.ScheduleItem) error {
 	defer writer.Flush()
 
 	// Заголовки CSV
-	writer.Write([]string{"Day", "Time", "Week", "Stream", "EndTime", "StartTime", "Discipline", "Permission", "Teachers", "Audiences"})
+	writer.Write([]string{"Day", "Time", "Week", "EndTime", "StartTime", "Discipline", "Permission", "Teachers", "Audiences", "Groups"})
 
 	for _, item := range scheduleItems {
 		// Форматирование списка преподавателей
@@ -61,6 +61,12 @@ func writeToCSV(filePath string, scheduleItems []models.ScheduleItem) error {
 		audiences := make([]string, len(item.Audiences))
 		for i, audience := range item.Audiences {
 			audiences[i] = audience.Name
+		}
+
+		// Форматирование списка групп
+		groups := make([]string, len(item.Groups))
+		for i, group := range item.Groups {
+			groups[i] = group.Name
 		}
 
 		// Запись строки в CSV

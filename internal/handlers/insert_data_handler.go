@@ -124,7 +124,13 @@ func (a *App) processGroupData(uuid string, mu *sync.Mutex, errors *[]string) er
 
 // insertToDatabase вставляет данные расписания в базу данных с проверкой на дублирование
 func (a *App) insertToDatabase(scheduleItems []models.ScheduleItem, examItems []models.Exam, uuid string, mu *sync.Mutex, errors *[]string) error {
+	var insertedScheduleItems, insertedExamItems int
+
 	for _, item := range scheduleItems {
+		for i := range item.Groups {
+			item.Groups[i].UUID = uuid
+		}
+
 		if err := a.DB.Where(models.ScheduleItem{
 			Day:       item.Day,
 			Time:      item.Time,
@@ -132,11 +138,12 @@ func (a *App) insertToDatabase(scheduleItems []models.ScheduleItem, examItems []
 			Stream:    item.Stream,
 			StartTime: item.StartTime,
 			EndTime:   item.EndTime,
+			GroupUUID: uuid,
 		}).FirstOrCreate(&item).Error; err != nil {
 			appendError(mu, errors, fmt.Sprintf("Failed to insert schedule item for group %s", uuid))
 			return err
 		}
-		log.Printf("Inserted schedule item for group %s", uuid)
+		insertedScheduleItems++
 	}
 
 	for _, item := range examItems {
@@ -149,9 +156,10 @@ func (a *App) insertToDatabase(scheduleItems []models.ScheduleItem, examItems []
 			appendError(mu, errors, fmt.Sprintf("Failed to insert exam item for group %s", uuid))
 			return err
 		}
-		log.Printf("Inserted exam item for group %s", uuid)
+		insertedExamItems++
 	}
 
+	log.Printf("Inserted %d schedule items and %d exam items for group %s", insertedScheduleItems, insertedExamItems, uuid)
 	return nil
 }
 
