@@ -131,6 +131,36 @@ paths:
       summary: Получение расписания
       tags:
       - GetData
+  /api/v1/get-group-schedule/{uuid}:
+    get:
+      consumes:
+      - application/json
+      description: Возвращает данные расписания конкретной группы из базы данных в
+        формате JSON
+      parameters:
+      - description: UUID группы
+        in: path
+        name: uuid
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Список элементов расписания
+          schema:
+            items:
+              $ref: '#/definitions/models.ScheduleItem'
+            type: array
+        "500":
+          description: 'error: Failed to fetch schedule items'
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Получение расписания группы
+      tags:
+      - GetData
   /api/v1/hello:
     get:
       consumes:
