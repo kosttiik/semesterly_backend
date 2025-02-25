@@ -4,14 +4,7 @@ import (
 	"net/http"
 
 	"github.com/labstack/echo/v4"
-	"gorm.io/gorm"
-
-	_ "github.com/kosttiik/semesterly_backend/docs" // Swagger documentation
 )
-
-type App struct {
-	DB *gorm.DB
-}
 
 // helloHandler - обработчик для теста работы сервера
 // @Summary Проверка подключения

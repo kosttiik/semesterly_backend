@@ -11,6 +11,7 @@ type Schedule struct {
 		Title    string         `json:"title"`
 		Schedule []ScheduleItem `json:"schedule"`
 	} `json:"data"`
+	Date time.Time `json:"date"`
 }
 
 type ScheduleItem struct {
@@ -29,16 +30,16 @@ type ScheduleItem struct {
 	StartTime  string     `json:"startTime"`
 	Discipline Discipline `json:"discipline" gorm:"embedded"`
 	Permission string     `json:"permission"`
-	GroupUUID  string     `json:"group_uuid"`
 }
 
 type Group struct {
-	ID        uint      `json:"id" gorm:"primarykey"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
-	DeletedAt time.Time `json:"deleted_at,omitempty" gorm:"index"`
-	Name      string    `json:"name"`
-	UUID      string    `json:"uuid"`
+	ID            uint      `json:"id" gorm:"primarykey"`
+	CreatedAt     time.Time `json:"created_at"`
+	UpdatedAt     time.Time `json:"updated_at"`
+	DeletedAt     time.Time `json:"deleted_at,omitempty" gorm:"index"`
+	Name          string    `json:"name"`
+	UUID          string    `json:"uuid"`
+	DepartmentUID string    `json:"department_uid"`
 }
 
 type Teacher struct {
@@ -53,12 +54,14 @@ type Teacher struct {
 }
 
 type Audience struct {
-	ID        uint      `json:"id" gorm:"primarykey"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
-	DeletedAt time.Time `json:"deleted_at,omitempty" gorm:"index"`
-	Name      string    `json:"name"`
-	UUID      string    `json:"uuid"`
+	ID            uint      `json:"id" gorm:"primarykey"`
+	CreatedAt     time.Time `json:"created_at"`
+	UpdatedAt     time.Time `json:"updated_at"`
+	DeletedAt     time.Time `json:"deleted_at,omitempty" gorm:"index"`
+	Name          string    `json:"name"`
+	UUID          string    `json:"uuid"`
+	Building      string    `json:"building"`
+	DepartmentUID *string   `json:"department_uid"` // Может быть null
 }
 
 type Discipline struct {

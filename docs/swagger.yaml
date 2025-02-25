@@ -2,9 +2,13 @@ basePath: /api/v1
 definitions:
   models.Audience:
     properties:
+      building:
+        type: string
       created_at:
         type: string
       deleted_at:
+        type: string
+      department_uid:
         type: string
       id:
         type: integer
@@ -21,9 +25,17 @@ definitions:
         type: string
       actType:
         type: string
+      created_at:
+        type: string
+      deleted_at:
+        type: string
       fullName:
         type: string
+      id:
+        type: integer
       shortName:
+        type: string
+      updated_at:
         type: string
     type: object
   models.Group:
@@ -31,6 +43,8 @@ definitions:
       created_at:
         type: string
       deleted_at:
+        type: string
+      department_uid:
         type: string
       id:
         type: integer
@@ -55,9 +69,9 @@ definitions:
         type: string
       discipline:
         $ref: '#/definitions/models.Discipline'
+      discipline_id:
+        type: integer
       endTime:
-        type: string
-      group_uuid:
         type: string
       groups:
         items:
@@ -67,6 +81,9 @@ definitions:
         type: integer
       permission:
         type: string
+      schedule_id:
+        description: Связь с Schedule
+        type: integer
       startTime:
         type: string
       stream:
@@ -198,6 +215,35 @@ paths:
       summary: Вставка данных
       tags:
       - InsertData
+  /api/v1/insert-group-schedule/{uuid}:
+    post:
+      consumes:
+      - application/json
+      description: Вставляет данные расписания и экзаменов для конкретной группы в
+        базу данных
+      parameters:
+      - description: UUID группы
+        in: path
+        name: uuid
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 'message: Group schedule inserted successfully'
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: 'errors: [error messages]'
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Вставка расписания группы
+      tags:
+      - InsertGroupSchedule
   /api/v1/write-schedule:
     post:
       consumes:

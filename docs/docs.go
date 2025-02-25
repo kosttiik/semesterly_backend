@@ -150,6 +150,48 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/insert-group-schedule/{uuid}": {
+            "post": {
+                "description": "Вставляет данные расписания и экзаменов для конкретной группы в базу данных",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "InsertGroupSchedule"
+                ],
+                "summary": "Вставка расписания группы",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "UUID группы",
+                        "name": "uuid",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "message: Group schedule inserted successfully",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "errors: [error messages]",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/write-schedule": {
             "post": {
                 "description": "Сохраняет данные расписания в CSV файл",
@@ -190,10 +232,16 @@ const docTemplate = `{
         "models.Audience": {
             "type": "object",
             "properties": {
+                "building": {
+                    "type": "string"
+                },
                 "created_at": {
                     "type": "string"
                 },
                 "deleted_at": {
+                    "type": "string"
+                },
+                "department_uid": {
                     "type": "string"
                 },
                 "id": {
@@ -219,10 +267,22 @@ const docTemplate = `{
                 "actType": {
                     "type": "string"
                 },
+                "created_at": {
+                    "type": "string"
+                },
+                "deleted_at": {
+                    "type": "string"
+                },
                 "fullName": {
                     "type": "string"
                 },
+                "id": {
+                    "type": "integer"
+                },
                 "shortName": {
+                    "type": "string"
+                },
+                "updated_at": {
                     "type": "string"
                 }
             }
@@ -234,6 +294,9 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "deleted_at": {
+                    "type": "string"
+                },
+                "department_uid": {
                     "type": "string"
                 },
                 "id": {
@@ -271,10 +334,10 @@ const docTemplate = `{
                 "discipline": {
                     "$ref": "#/definitions/models.Discipline"
                 },
-                "endTime": {
-                    "type": "string"
+                "discipline_id": {
+                    "type": "integer"
                 },
-                "group_uuid": {
+                "endTime": {
                     "type": "string"
                 },
                 "groups": {
@@ -288,6 +351,10 @@ const docTemplate = `{
                 },
                 "permission": {
                     "type": "string"
+                },
+                "schedule_id": {
+                    "description": "Связь с Schedule",
+                    "type": "integer"
                 },
                 "startTime": {
                     "type": "string"
