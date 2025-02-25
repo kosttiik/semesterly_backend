@@ -21,8 +21,15 @@ func (a *App) GetGroupScheduleHandler(c echo.Context) error {
 	uuid := c.Param("uuid")
 	var scheduleItems []models.ScheduleItem
 
-	// Загрузка данных с подгрузкой аудиторий и преподавателей для конкретной группы
-	if err := a.DB.Preload("Teachers").Preload("Audiences").Where("group_uuid = ?", uuid).Find(&scheduleItems).Error; err != nil {
+	// Загрузка расписания для группы через связь многие-ко-многим
+	if err := a.DB.
+		Preload("Groups").
+		Preload("Teachers").
+		Preload("Audiences").
+		Joins("JOIN schedule_item_groups ON schedule_item_groups.schedule_item_id = schedule_items.id").
+		Joins("JOIN groups ON groups.id = schedule_item_groups.group_id").
+		Where("groups.uuid = ?", uuid).
+		Find(&scheduleItems).Error; err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to fetch schedule items"})
 	}
 

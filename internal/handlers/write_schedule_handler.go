@@ -23,8 +23,8 @@ import (
 func (a *App) WriteScheduleToFileHandler(c echo.Context) error {
 	var scheduleItems []models.ScheduleItem
 
-	// Загрузка данных с подгрузкой аудиторий и преподавателей
-	if err := a.DB.Preload("Teachers").Preload("Audiences").Find(&scheduleItems).Error; err != nil {
+	// Загрузка данных с подгрузкой групп, аудиторий и преподавателей
+	if err := a.DB.Preload("Groups").Preload("Teachers").Preload("Audiences").Find(&scheduleItems).Error; err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to fetch schedule items"})
 	}
 
@@ -48,7 +48,7 @@ func writeToCSV(filePath string, scheduleItems []models.ScheduleItem) error {
 	defer writer.Flush()
 
 	// Заголовки CSV
-	writer.Write([]string{"Day", "Time", "Week", "EndTime", "StartTime", "Discipline", "Permission", "Teachers", "Audiences", "Groups"})
+	writer.Write([]string{"Day", "Time", "Week", "Stream", "EndTime", "StartTime", "Discipline", "Permission", "Teachers", "Audiences", "Groups"})
 
 	for _, item := range scheduleItems {
 		// Форматирование списка преподавателей
@@ -81,6 +81,7 @@ func writeToCSV(filePath string, scheduleItems []models.ScheduleItem) error {
 			item.Permission,
 			strings.Join(teachers, "; "),
 			strings.Join(audiences, "; "),
+			strings.Join(groups, "; "),
 		})
 		if err != nil {
 			return fmt.Errorf("failed to write to CSV: %w", err)

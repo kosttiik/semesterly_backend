@@ -11,44 +11,29 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-// InsertDataHandler обрабатывает вставку данных в базу данных
-// @Summary Вставка данных
-// @Description Вставляет данные расписания и экзаменов в базу данных
-// @Tags InsertData
+// InsertGroupScheduleHandler обрабатывает вставку расписания для конкретной группы в базу данных
+// @Summary Вставка расписания группы
+// @Description Вставляет данные расписания и экзаменов для конкретной группы в базу данных
+// @Tags InsertGroupSchedule
 // @Accept json
 // @Produce json
-// @Success 200 {object} map[string]string "message: Data inserted successfully"
+// @Param uuid path string true "UUID группы"
+// @Success 200 {object} map[string]string "message: Group schedule inserted successfully"
 // @Failure 500 {object} map[string]interface{} "errors: [error messages]"
-// @Router /api/v1/insert-data [post]
-func (a *App) InsertDataHandler(c echo.Context) error {
-	structureURL := "https://lks.bmstu.ru/lks-back/api/v1/structure"
-	var structure models.Structure
-
-	if err := utils.FetchJSON(structureURL, &structure); err != nil {
-		log.Printf("Failed to fetch structure: %v", err)
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to fetch structure"})
-	}
-
-	groupUUIDs := utils.ExtractGroupUUIDs(structure.Data.Children)
-	log.Printf("Fetched %d group UUIDs", len(groupUUIDs))
-
+// @Router /api/v1/insert-group-schedule/{uuid} [post]
+func (a *App) InsertGroupScheduleHandler(c echo.Context) error {
+	uuid := c.Param("uuid")
 	var wg sync.WaitGroup
 	var mu sync.Mutex
 	errors := make([]string, 0)
-	sem := make(chan struct{}, 8) // Ограничиваем до 8 горутин
 
-	for _, uuid := range groupUUIDs {
-		sem <- struct{}{}
-		wg.Add(1)
-		go func(uuid string) {
-			defer wg.Done()
-			defer func() { <-sem }()
-			if err := a.processGroupData(uuid, &mu, &errors); err != nil {
-				log.Printf("Failed to process data for group %s: %v", uuid, err)
-				utils.AppendError(&mu, &errors, fmt.Sprintf("Group %s: %v", uuid, err))
-			}
-		}(uuid)
-	}
+	wg.Add(1)
+	go func(uuid string) {
+		defer wg.Done()
+		if err := a.processGroupScheduleData(uuid, &mu, &errors); err != nil {
+			log.Printf("Failed to process data for group %s: %v", uuid, err)
+		}
+	}(uuid)
 
 	wg.Wait()
 
@@ -56,10 +41,11 @@ func (a *App) InsertDataHandler(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, map[string]any{"errors": errors})
 	}
 
-	return c.JSON(http.StatusOK, map[string]string{"message": "Data inserted successfully"})
+	return c.JSON(http.StatusOK, map[string]string{"message": "Group schedule inserted successfully"})
 }
 
-func (a *App) processGroupData(uuid string, mu *sync.Mutex, errors *[]string) error {
+// processGroupScheduleData обрабатывает данные расписания и экзаменов для группы
+func (a *App) processGroupScheduleData(uuid string, mu *sync.Mutex, errors *[]string) error {
 	var schedule models.Schedule
 	var exams models.ExamResponse
 
@@ -78,14 +64,15 @@ func (a *App) processGroupData(uuid string, mu *sync.Mutex, errors *[]string) er
 	}
 	log.Printf("Fetched exams for group %s", uuid)
 
-	if err := a.insertToDatabase(schedule.Data.Schedule, exams.Data, mu, errors); err != nil {
+	if err := a.insertGroupToDatabase(schedule.Data.Schedule, exams.Data, mu, errors); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func (a *App) insertToDatabase(scheduleItems []models.ScheduleItem, examItems []models.Exam, mu *sync.Mutex, errors *[]string) error {
+// insertToDatabase вставляет данные расписания в базу данных с проверкой на дублирование
+func (a *App) insertGroupToDatabase(scheduleItems []models.ScheduleItem, examItems []models.Exam, mu *sync.Mutex, errors *[]string) error {
 	var insertedScheduleItems, insertedExamItems int
 
 	for _, item := range scheduleItems {

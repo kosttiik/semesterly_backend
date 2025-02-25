@@ -42,7 +42,7 @@ func New() (*App, error) {
 	var err error
 
 	// Ожидание подключения к БД
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		db, err = gorm.Open(postgres.Open(dsn), &gorm.Config{})
 		if err == nil {
 			break
@@ -87,8 +87,10 @@ func (a *App) RegisterRoutes(e *echo.Echo) {
 
 	e.GET("/api/v1/hello", h.HelloHandler)
 	e.POST("/api/v1/insert-data", h.InsertDataHandler)
+	e.POST("/api/v1/insert-group-schedule/:uuid", h.InsertGroupScheduleHandler)
+
 	e.GET("/api/v1/get-data", h.GetDataHandler)
 	e.GET("/api/v1/get-group-schedule/:uuid", h.GetGroupScheduleHandler)
 
-	e.GET("/api/v1/write-schedule", h.WriteScheduleToFileHandler)
+	e.POST("/api/v1/write-schedule", h.WriteScheduleToFileHandler)
 }
