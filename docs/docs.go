@@ -15,7 +15,7 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
-        "/api/v1/get-data": {
+        "/get-data": {
             "get": {
                 "description": "Возвращает данные расписания из базы данных в формате JSON",
                 "consumes": [
@@ -50,7 +50,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/v1/get-group-schedule/{uuid}": {
+        "/get-group-schedule/{uuid}": {
             "get": {
                 "description": "Возвращает данные расписания конкретной группы из базы данных в формате JSON",
                 "consumes": [
@@ -94,7 +94,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/v1/hello": {
+        "/hello": {
             "get": {
                 "description": "Проверяет, работает ли сервер и есть ли подключение к базе данных",
                 "consumes": [
@@ -117,7 +117,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/v1/insert-data": {
+        "/insert-data": {
             "post": {
                 "description": "Вставляет данные расписания и экзаменов в базу данных",
                 "consumes": [
@@ -150,7 +150,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/v1/insert-group-schedule/{uuid}": {
+        "/insert-group-schedule/{uuid}": {
             "post": {
                 "description": "Вставляет данные расписания и экзаменов для конкретной группы в базу данных",
                 "consumes": [
@@ -192,7 +192,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/v1/write-schedule": {
+        "/write-schedule": {
             "post": {
                 "description": "Сохраняет данные расписания в CSV файл",
                 "consumes": [
@@ -242,6 +242,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "department_uid": {
+                    "description": "Может быть null",
                     "type": "string"
                 },
                 "id": {
@@ -267,22 +268,10 @@ const docTemplate = `{
                 "actType": {
                     "type": "string"
                 },
-                "created_at": {
-                    "type": "string"
-                },
-                "deleted_at": {
-                    "type": "string"
-                },
                 "fullName": {
                     "type": "string"
                 },
-                "id": {
-                    "type": "integer"
-                },
                 "shortName": {
-                    "type": "string"
-                },
-                "updated_at": {
                     "type": "string"
                 }
             }
@@ -334,9 +323,6 @@ const docTemplate = `{
                 "discipline": {
                     "$ref": "#/definitions/models.Discipline"
                 },
-                "discipline_id": {
-                    "type": "integer"
-                },
                 "endTime": {
                     "type": "string"
                 },
@@ -351,10 +337,6 @@ const docTemplate = `{
                 },
                 "permission": {
                     "type": "string"
-                },
-                "schedule_id": {
-                    "description": "Связь с Schedule",
-                    "type": "integer"
                 },
                 "startTime": {
                     "type": "string"

@@ -19,7 +19,7 @@ import (
 // @Produce json
 // @Success 200 {object} map[string]string "message: Schedule written to file successfully"
 // @Failure 500 {object} map[string]string "error: Failed to fetch schedule items" "error: Failed to write schedule to file"
-// @Router /api/v1/write-schedule [post]
+// @Router /write-schedule [post]
 func (a *App) WriteScheduleToFileHandler(c echo.Context) error {
 	var scheduleItems []models.ScheduleItem
 

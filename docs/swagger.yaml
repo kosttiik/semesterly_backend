@@ -9,6 +9,7 @@ definitions:
       deleted_at:
         type: string
       department_uid:
+        description: Может быть null
         type: string
       id:
         type: integer
@@ -25,17 +26,9 @@ definitions:
         type: string
       actType:
         type: string
-      created_at:
-        type: string
-      deleted_at:
-        type: string
       fullName:
         type: string
-      id:
-        type: integer
       shortName:
-        type: string
-      updated_at:
         type: string
     type: object
   models.Group:
@@ -69,8 +62,6 @@ definitions:
         type: string
       discipline:
         $ref: '#/definitions/models.Discipline'
-      discipline_id:
-        type: integer
       endTime:
         type: string
       groups:
@@ -81,9 +72,6 @@ definitions:
         type: integer
       permission:
         type: string
-      schedule_id:
-        description: Связь с Schedule
-        type: integer
       startTime:
         type: string
       stream:
@@ -125,7 +113,7 @@ info:
   title: Автоматизированная система по ведению расписания учебных занятий
   version: "1.0"
 paths:
-  /api/v1/get-data:
+  /get-data:
     get:
       consumes:
       - application/json
@@ -148,7 +136,7 @@ paths:
       summary: Получение расписания
       tags:
       - GetData
-  /api/v1/get-group-schedule/{uuid}:
+  /get-group-schedule/{uuid}:
     get:
       consumes:
       - application/json
@@ -178,7 +166,7 @@ paths:
       summary: Получение расписания группы
       tags:
       - GetData
-  /api/v1/hello:
+  /hello:
     get:
       consumes:
       - application/json
@@ -193,7 +181,7 @@ paths:
       summary: Проверка подключения
       tags:
       - Hello
-  /api/v1/insert-data:
+  /insert-data:
     post:
       consumes:
       - application/json
@@ -215,7 +203,7 @@ paths:
       summary: Вставка данных
       tags:
       - InsertData
-  /api/v1/insert-group-schedule/{uuid}:
+  /insert-group-schedule/{uuid}:
     post:
       consumes:
       - application/json
@@ -244,7 +232,7 @@ paths:
       summary: Вставка расписания группы
       tags:
       - InsertGroupSchedule
-  /api/v1/write-schedule:
+  /write-schedule:
     post:
       consumes:
       - application/json

@@ -15,7 +15,7 @@ import (
 // @Produce json
 // @Success 200 {array} models.ScheduleItem "Список элементов расписания"
 // @Failure 500 {object} map[string]string "error: Failed to fetch schedule items"
-// @Router /api/v1/get-data [get]
+// @Router /get-data [get]
 func (a *App) GetDataHandler(c echo.Context) error {
 	var scheduleItems []models.ScheduleItem
 

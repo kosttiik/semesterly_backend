@@ -20,7 +20,7 @@ import (
 // @Param uuid path string true "UUID группы"
 // @Success 200 {object} map[string]string "message: Group schedule inserted successfully"
 // @Failure 500 {object} map[string]interface{} "errors: [error messages]"
-// @Router /api/v1/insert-group-schedule/{uuid} [post]
+// @Router /insert-group-schedule/{uuid} [post]
 func (a *App) InsertGroupScheduleHandler(c echo.Context) error {
 	uuid := c.Param("uuid")
 	var wg sync.WaitGroup

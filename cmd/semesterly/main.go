@@ -10,7 +10,6 @@ import (
 
 	_ "github.com/kosttiik/semesterly_backend/docs" // Swagger documentation
 	"github.com/kosttiik/semesterly_backend/internal/pkg/app"
-
 	"github.com/labstack/echo/v4"
 )
 
@@ -29,29 +28,43 @@ func main() {
 	}
 
 	e := echo.New()
-
 	a.RegisterRoutes(e)
 
-	// Запуск сервера
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+
+	// Канал для передачи ошибок из горутины
+	errChan := make(chan error, 1)
+
+	// Запуск сервера в горутине
 	go func() {
-		if err := e.Start(":8080"); err != nil {
-			log.Fatalf("Shutting down the server: %v", err)
+		if err := e.Start(":" + port); err != nil {
+			errChan <- err
 		}
 	}()
 
-	handleShutdown(e)
+	// Обработка завершения приложения
+	handleShutdown(e, errChan)
 }
 
-func handleShutdown(e *echo.Echo) {
+func handleShutdown(e *echo.Echo, errChan chan error) {
 	// Ловим сигналы завершения
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
-	<-quit
 
-	log.Println("Shutting down server...")
-	if err := e.Shutdown(context.Background()); err != nil {
-		log.Fatalf("Error shutting down server: %v", err)
+	// Ожидание сигнала завершения или ошибки от сервера
+	select {
+	case err := <-errChan:
+		log.Fatalf("Shutting down the server due to error: %v", err)
+	case <-quit:
+		log.Println("Shutting down server...")
+		if err := e.Shutdown(context.Background()); err != nil {
+			log.Fatalf("Error shutting down server: %v", err)
+		}
 	}
 
+	// Чуть времени на завершение
 	time.Sleep(1 * time.Second)
 }

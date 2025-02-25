@@ -72,9 +72,9 @@ func New() (*App, error) {
 func (a *App) RegisterRoutes(e *echo.Echo) {
 	// Логирование запросов в терминал
 	e.Use(middleware.LoggerWithConfig(middleware.LoggerConfig{
-		Format: "⇨ ${time_custom} | ${status} | ${method} ${uri} | ${remote_ip} | ${latency_human}" +
+		Format: "[${time_custom}] | ${status} | ${method} ${uri} | ${remote_ip} | ${latency_human}" +
 			"\n   Error: ${error}\n",
-		CustomTimeFormat: "02.01.2006 - 15:04:05",
+		CustomTimeFormat: "15:04:05 02.01.2006",
 		Output:           os.Stdout,
 	}))
 
@@ -82,8 +82,8 @@ func (a *App) RegisterRoutes(e *echo.Echo) {
 		DB: a.DB,
 	}
 
-	// Swagger documentation
-	e.GET("/swagger/*", echoSwagger.WrapHandler)
+	// Документация Swagger
+	e.GET("/docs/*", echoSwagger.WrapHandler)
 
 	e.GET("/api/v1/hello", h.HelloHandler)
 	e.POST("/api/v1/insert-data", h.InsertDataHandler)

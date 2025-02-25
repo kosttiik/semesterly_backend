@@ -1,14 +1,17 @@
 package handlers
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net/http"
 	"sync"
+	"time"
 
 	"github.com/kosttiik/semesterly_backend/internal/models"
 	"github.com/kosttiik/semesterly_backend/internal/utils"
 	"github.com/labstack/echo/v4"
+	"golang.org/x/time/rate"
 )
 
 // InsertDataHandler обрабатывает вставку данных в базу данных
@@ -19,7 +22,7 @@ import (
 // @Produce json
 // @Success 200 {object} map[string]string "message: Data inserted successfully"
 // @Failure 500 {object} map[string]interface{} "errors: [error messages]"
-// @Router /api/v1/insert-data [post]
+// @Router /insert-data [post]
 func (a *App) InsertDataHandler(c echo.Context) error {
 	structureURL := "https://lks.bmstu.ru/lks-back/api/v1/structure"
 	var structure models.Structure
@@ -35,7 +38,8 @@ func (a *App) InsertDataHandler(c echo.Context) error {
 	var wg sync.WaitGroup
 	var mu sync.Mutex
 	errors := make([]string, 0)
-	sem := make(chan struct{}, 8) // Ограничиваем до 8 горутин
+	sem := make(chan struct{}, 8)                          // Ограничение в 8 горутин одновременно
+	limiter := rate.NewLimiter(rate.Every(time.Second), 1) // 1 запрос в секунду
 
 	for _, uuid := range groupUUIDs {
 		sem <- struct{}{}
@@ -43,6 +47,14 @@ func (a *App) InsertDataHandler(c echo.Context) error {
 		go func(uuid string) {
 			defer wg.Done()
 			defer func() { <-sem }()
+
+			// Ожидание разрешения от rate limiter
+			if err := limiter.Wait(context.Background()); err != nil {
+				log.Printf("Rate limiter error for group %s: %v", uuid, err)
+				utils.AppendError(&mu, &errors, fmt.Sprintf("Rate limiter error for group %s: %v", uuid, err))
+				return
+			}
+
 			if err := a.processGroupData(uuid, &mu, &errors); err != nil {
 				log.Printf("Failed to process data for group %s: %v", uuid, err)
 				utils.AppendError(&mu, &errors, fmt.Sprintf("Group %s: %v", uuid, err))
