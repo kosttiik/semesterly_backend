@@ -73,7 +73,7 @@ func New() (*App, error) {
 	var err error
 
 	// Ожидание подключения к БД
-	for i := 0; i < maxRetries; i++ {
+	for i := range maxRetries {
 		db, err = gorm.Open(postgres.Open(databaseURL), &gorm.Config{})
 		if err == nil {
 			break
@@ -101,7 +101,7 @@ func New() (*App, error) {
 }
 
 func (a *App) RegisterRoutes(e *echo.Echo) {
-	// Логирование запросов в терминал с настраиваемым форматом времени
+	// Логирование запросов в терминал
 	timeFormat := os.Getenv("LOG_TIME_FORMAT")
 	if timeFormat == "" {
 		timeFormat = "15:04:05 02.01.2006"
