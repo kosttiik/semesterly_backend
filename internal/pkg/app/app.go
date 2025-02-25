@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/labstack/echo/v4"
@@ -22,38 +23,68 @@ type App struct {
 	DB *gorm.DB
 }
 
-var ErrMissingDatabaseConfig = errors.New("missing one or more required database environment variables")
+var (
+	ErrMissingDatabaseConfig = errors.New("missing DATABASE_URL environment variable")
+	ErrInvalidRetryConfig    = errors.New("invalid retry configuration")
+)
 
 // Инициализация приложения с подключением к БД
 func New() (*App, error) {
-	dbName := os.Getenv("DB_NAME")
-	dbUser := os.Getenv("DB_USER")
-	dbPassword := os.Getenv("DB_PASSWORD")
-	dbHost := os.Getenv("DB_HOST")
-	dbPort := os.Getenv("DB_PORT")
+	// Настраиваем формат логов глобально
+	timeFormat := os.Getenv("LOG_TIME_FORMAT")
+	if timeFormat == "" {
+		timeFormat = "15:04:05 02.01.2006"
+	}
+	log.SetFlags(0) // Убираем стандартный префикс (дата/время)
+	log.SetOutput(&customLogger{format: timeFormat})
 
-	if dbName == "" || dbUser == "" || dbPassword == "" || dbHost == "" || dbPort == "" {
+	// Получаем DATABASE_URL из .env
+	databaseURL := os.Getenv("DATABASE_URL")
+	if databaseURL == "" {
 		return nil, ErrMissingDatabaseConfig
 	}
 
-	dsn := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s sslmode=disable", dbHost, dbUser, dbPassword, dbName, dbPort)
+	// Получаем настройки повторных попыток подключения
+	maxRetriesStr := os.Getenv("DB_MAX_RETRIES")
+	retryIntervalStr := os.Getenv("DB_RETRY_INTERVAL")
+
+	// Значения по умолчанию
+	maxRetries := 10
+	retryInterval := 1 * time.Second
+
+	if maxRetriesStr != "" {
+		var err error
+		maxRetries, err = strconv.Atoi(maxRetriesStr)
+		if err != nil || maxRetries < 0 {
+			return nil, fmt.Errorf("%w: DB_MAX_RETRIES must be a non-negative integer", ErrInvalidRetryConfig)
+		}
+	}
+
+	if retryIntervalStr != "" {
+		var err error
+		retryIntervalSeconds, err := strconv.Atoi(retryIntervalStr)
+		if err != nil || retryIntervalSeconds <= 0 {
+			return nil, fmt.Errorf("%w: DB_RETRY_INTERVAL must be a positive integer in seconds", ErrInvalidRetryConfig)
+		}
+		retryInterval = time.Duration(retryIntervalSeconds) * time.Second
+	}
 
 	var db *gorm.DB
 	var err error
 
 	// Ожидание подключения к БД
-	for i := range 10 {
-		db, err = gorm.Open(postgres.Open(dsn), &gorm.Config{})
+	for i := 0; i < maxRetries; i++ {
+		db, err = gorm.Open(postgres.Open(databaseURL), &gorm.Config{})
 		if err == nil {
 			break
 		}
-		waitTime := time.Duration(i+1) * time.Second
+		waitTime := retryInterval * time.Duration(i+1)
 		log.Printf("Waiting for database... retrying in %v", waitTime)
 		time.Sleep(waitTime)
 	}
 
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to connect to database after %d retries: %w", maxRetries, err)
 	}
 
 	log.Println("Connected to the database successfully!")
@@ -61,7 +92,7 @@ func New() (*App, error) {
 	// Миграция БД
 	err = db.AutoMigrate(&models.ScheduleItem{}, &models.Exam{})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to migrate database: %w", err)
 	}
 
 	return &App{
@@ -70,11 +101,16 @@ func New() (*App, error) {
 }
 
 func (a *App) RegisterRoutes(e *echo.Echo) {
-	// Логирование запросов в терминал
+	// Логирование запросов в терминал с настраиваемым форматом времени
+	timeFormat := os.Getenv("LOG_TIME_FORMAT")
+	if timeFormat == "" {
+		timeFormat = "15:04:05 02.01.2006"
+	}
+
 	e.Use(middleware.LoggerWithConfig(middleware.LoggerConfig{
 		Format: "[${time_custom}] | ${status} | ${method} ${uri} | ${remote_ip} | ${latency_human}" +
 			"\n   Error: ${error}\n",
-		CustomTimeFormat: "15:04:05 02.01.2006",
+		CustomTimeFormat: timeFormat,
 		Output:           os.Stdout,
 	}))
 
@@ -93,4 +129,18 @@ func (a *App) RegisterRoutes(e *echo.Echo) {
 	e.GET("/api/v1/get-group-schedule/:uuid", h.GetGroupScheduleHandler)
 
 	e.POST("/api/v1/write-schedule", h.WriteScheduleToFileHandler)
+}
+
+// customLogger для форматирования логов с использованием LOG_TIME_FORMAT
+type customLogger struct {
+	format string
+}
+
+func (cl *customLogger) Write(p []byte) (n int, err error) {
+	currentTime := time.Now().Format(cl.format)
+	_, err = fmt.Fprintf(os.Stdout, "[%s] %s", currentTime, string(p))
+	if err != nil {
+		return 0, err
+	}
+	return len(p), nil
 }

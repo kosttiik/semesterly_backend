@@ -38,8 +38,8 @@ func (a *App) InsertDataHandler(c echo.Context) error {
 	var wg sync.WaitGroup
 	var mu sync.Mutex
 	errors := make([]string, 0)
-	sem := make(chan struct{}, 8)                          // Ограничение в 8 горутин одновременно
-	limiter := rate.NewLimiter(rate.Every(time.Second), 1) // 1 запрос в секунду
+	sem := make(chan struct{}, 16)                                   // Ограничение в 16 горутин одновременно
+	limiter := rate.NewLimiter(rate.Every(500*time.Millisecond), 16) // 16 запросов в 500 миллисекунд
 
 	for _, uuid := range groupUUIDs {
 		sem <- struct{}{}
