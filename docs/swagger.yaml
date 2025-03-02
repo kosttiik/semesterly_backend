@@ -26,9 +26,17 @@ definitions:
         type: string
       actType:
         type: string
+      created_at:
+        type: string
+      deleted_at:
+        type: string
       fullName:
         type: string
+      id:
+        type: integer
       shortName:
+        type: string
+      updated_at:
         type: string
     type: object
   models.Group:
@@ -61,7 +69,13 @@ definitions:
       deleted_at:
         type: string
       discipline:
-        $ref: '#/definitions/models.Discipline'
+        allOf:
+        - $ref: '#/definitions/models.Discipline'
+        description: Временное поле для парсинга JSON
+      disciplines:
+        items:
+          $ref: '#/definitions/models.Discipline'
+        type: array
       endTime:
         type: string
       groups:

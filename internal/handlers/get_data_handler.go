@@ -19,8 +19,12 @@ import (
 func (a *App) GetDataHandler(c echo.Context) error {
 	var scheduleItems []models.ScheduleItem
 
-	// Загрузка данных с подгрузкой групп, аудиторий и преподавателей
-	if err := a.DB.Preload("Groups").Preload("Teachers").Preload("Audiences").Find(&scheduleItems).Error; err != nil {
+	if err := a.DB.
+		Preload("Groups").
+		Preload("Teachers").
+		Preload("Audiences").
+		Preload("Disciplines").
+		Find(&scheduleItems).Error; err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to fetch schedule items"})
 	}
 

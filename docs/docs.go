@@ -268,10 +268,22 @@ const docTemplate = `{
                 "actType": {
                     "type": "string"
                 },
+                "created_at": {
+                    "type": "string"
+                },
+                "deleted_at": {
+                    "type": "string"
+                },
                 "fullName": {
                     "type": "string"
                 },
+                "id": {
+                    "type": "integer"
+                },
                 "shortName": {
+                    "type": "string"
+                },
+                "updated_at": {
                     "type": "string"
                 }
             }
@@ -321,7 +333,18 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "discipline": {
-                    "$ref": "#/definitions/models.Discipline"
+                    "description": "Временное поле для парсинга JSON",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.Discipline"
+                        }
+                    ]
+                },
+                "disciplines": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.Discipline"
+                    }
                 },
                 "endTime": {
                     "type": "string"
