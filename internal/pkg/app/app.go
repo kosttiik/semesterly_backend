@@ -114,6 +114,11 @@ func (a *App) RegisterRoutes(e *echo.Echo) {
 		Output:           os.Stdout,
 	}))
 
+	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
+        AllowOrigins: []string{"*"},
+        AllowMethods: []string{echo.GET, echo.POST, echo.PUT, echo.DELETE},
+    }))
+
 	h := &handlers.App{
 		DB: a.DB,
 	}

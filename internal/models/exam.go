@@ -4,9 +4,9 @@ import "time"
 
 type Exam struct {
 	ID          uint         `json:"id" gorm:"primarykey"`
-	CreatedAt   time.Time    `json:"created_at"`
-	UpdatedAt   time.Time    `json:"updated_at"`
-	DeletedAt   time.Time    `json:"deleted_at,omitempty" gorm:"index"`
+	CreatedAt   time.Time    `json:"-"`
+	UpdatedAt   time.Time    `json:"-"`
+	DeletedAt   time.Time    `json:"-" gorm:"index"`
 	Room        string       `json:"room"`
 	ExamDate    string       `json:"examDate"`
 	ExamTime    string       `json:"examTime"`

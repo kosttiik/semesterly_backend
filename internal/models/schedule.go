@@ -17,9 +17,9 @@ type Schedule struct {
 
 type ScheduleItem struct {
 	ID          uint         `json:"id" gorm:"primarykey"`
-	CreatedAt   time.Time    `json:"created_at"`
-	UpdatedAt   time.Time    `json:"updated_at"`
-	DeletedAt   time.Time    `json:"deleted_at,omitempty" gorm:"index"`
+	CreatedAt   time.Time    `json:"-"`
+	UpdatedAt   time.Time    `json:"-"`
+	DeletedAt   time.Time    `json:"-" gorm:"index"`
 	Day         int          `json:"day"`
 	Time        int          `json:"time"`
 	Week        string       `json:"week"`
@@ -40,9 +40,9 @@ func (s ScheduleItem) MarshalJSON() ([]byte, error) {
 	type Alias ScheduleItem
 	return json.Marshal(&struct {
 		ID          uint         `json:"id"`
-		CreatedAt   time.Time    `json:"created_at"`
-		UpdatedAt   time.Time    `json:"updated_at"`
-		DeletedAt   time.Time    `json:"deleted_at"`
+		// CreatedAt   time.Time    `json:"-"`
+		// UpdatedAt   time.Time    `json:"-"`
+		// DeletedAt   time.Time    `json:"-"`
 		Day         int          `json:"day"`
 		Time        int          `json:"time"`
 		Week        string       `json:"week"`
@@ -56,9 +56,9 @@ func (s ScheduleItem) MarshalJSON() ([]byte, error) {
 		Permission  string       `json:"permission"`
 	}{
 		ID:          s.ID,
-		CreatedAt:   s.CreatedAt,
-		UpdatedAt:   s.UpdatedAt,
-		DeletedAt:   s.DeletedAt,
+		// CreatedAt:   s.CreatedAt,
+		// UpdatedAt:   s.UpdatedAt,
+		// DeletedAt:   s.DeletedAt,
 		Day:         s.Day,
 		Time:        s.Time,
 		Week:        s.Week,
@@ -75,9 +75,9 @@ func (s ScheduleItem) MarshalJSON() ([]byte, error) {
 
 type Group struct {
 	ID            uint      `json:"id" gorm:"primarykey"`
-	CreatedAt     time.Time `json:"created_at"`
-	UpdatedAt     time.Time `json:"updated_at"`
-	DeletedAt     time.Time `json:"deleted_at,omitempty" gorm:"index"`
+	CreatedAt     time.Time `json:"-"`
+	UpdatedAt     time.Time `json:"-"`
+	DeletedAt     time.Time `json:"-" gorm:"index"`
 	Name          string    `json:"name"`
 	UUID          string    `json:"uuid"`
 	DepartmentUID string    `json:"department_uid"`
@@ -85,9 +85,9 @@ type Group struct {
 
 type Teacher struct {
 	ID         uint      `json:"id" gorm:"primarykey"`
-	CreatedAt  time.Time `json:"created_at"`
-	UpdatedAt  time.Time `json:"updated_at"`
-	DeletedAt  time.Time `json:"deleted_at,omitempty" gorm:"index"`
+	CreatedAt  time.Time `json:"-"`
+	UpdatedAt  time.Time `json:"-"`
+	DeletedAt  time.Time `json:"-" gorm:"index"`
 	UUID       string    `json:"uuid"`
 	LastName   string    `json:"lastName"`
 	FirstName  string    `json:"firstName"`
@@ -96,9 +96,9 @@ type Teacher struct {
 
 type Audience struct {
 	ID            uint      `json:"id" gorm:"primarykey"`
-	CreatedAt     time.Time `json:"created_at"`
-	UpdatedAt     time.Time `json:"updated_at"`
-	DeletedAt     time.Time `json:"deleted_at,omitempty" gorm:"index"`
+	CreatedAt     time.Time `json:"-"`
+	UpdatedAt     time.Time `json:"-"`
+	DeletedAt     time.Time `json:"-" gorm:"index"`
 	Name          string    `json:"name"`
 	UUID          string    `json:"uuid"`
 	Building      string    `json:"building"`
@@ -107,9 +107,9 @@ type Audience struct {
 
 type Discipline struct {
 	ID        uint      `json:"id" gorm:"primarykey"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
-	DeletedAt time.Time `json:"deleted_at,omitempty" gorm:"index"`
+	CreatedAt time.Time `json:"-"`
+	UpdatedAt time.Time `json:"-"`
+	DeletedAt time.Time `json:"-" gorm:"index"`
 	Abbr      string    `json:"abbr"`
 	ActType   string    `json:"actType"`
 	FullName  string    `json:"fullName"`
