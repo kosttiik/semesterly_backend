@@ -94,6 +94,41 @@ const docTemplate = `{
                 }
             }
         },
+        "/get-groups": {
+            "get": {
+                "description": "Возвращает данные всех групп из базы данных в формате JSON",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "GetGroups"
+                ],
+                "summary": "Получение списка групп",
+                "responses": {
+                    "200": {
+                        "description": "Список групп",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/models.Group"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "error: Failed to fetch groups",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/hello": {
             "get": {
                 "description": "Проверяет, работает ли сервер и есть ли подключение к базе данных",

@@ -103,7 +103,7 @@ func New() (*App, error) {
 func (a *App) RegisterRoutes(e *echo.Echo) {
 	// Логирование запросов в терминал
 	timeFormat := os.Getenv("LOG_TIME_FORMAT")
-	if timeFormat == "" {
+	if (timeFormat == "") {
 		timeFormat = "15:04:05 02.01.2006"
 	}
 
@@ -125,6 +125,7 @@ func (a *App) RegisterRoutes(e *echo.Echo) {
 	e.POST("/api/v1/insert-data", h.InsertDataHandler)
 	e.POST("/api/v1/insert-group-schedule/:uuid", h.InsertGroupScheduleHandler)
 
+	e.GET("/api/v1/get-groups", h.GetGroupsHandler)
 	e.GET("/api/v1/get-data", h.GetDataHandler)
 	e.GET("/api/v1/get-group-schedule/:uuid", h.GetGroupScheduleHandler)
 

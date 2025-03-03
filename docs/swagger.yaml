@@ -180,6 +180,29 @@ paths:
       summary: Получение расписания группы
       tags:
       - GetData
+  /get-groups:
+    get:
+      consumes:
+      - application/json
+      description: Возвращает данные всех групп из базы данных в формате JSON
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Список групп
+          schema:
+            items:
+              $ref: '#/definitions/models.Group'
+            type: array
+        "500":
+          description: 'error: Failed to fetch groups'
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Получение списка групп
+      tags:
+      - GetGroups
   /hello:
     get:
       consumes:
