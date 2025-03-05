@@ -103,7 +103,7 @@ func New() (*App, error) {
 func (a *App) RegisterRoutes(e *echo.Echo) {
 	// Логирование запросов в терминал
 	timeFormat := os.Getenv("LOG_TIME_FORMAT")
-	if (timeFormat == "") {
+	if timeFormat == "" {
 		timeFormat = "15:04:05 02.01.2006"
 	}
 
@@ -115,9 +115,9 @@ func (a *App) RegisterRoutes(e *echo.Echo) {
 	}))
 
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
-        AllowOrigins: []string{"*"},
-        AllowMethods: []string{echo.GET, echo.POST, echo.PUT, echo.DELETE},
-    }))
+		AllowOrigins: []string{"*"},
+		AllowMethods: []string{echo.GET, echo.POST, echo.PUT, echo.DELETE},
+	}))
 
 	h := &handlers.App{
 		DB: a.DB,
