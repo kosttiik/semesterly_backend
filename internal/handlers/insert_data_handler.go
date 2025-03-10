@@ -35,8 +35,29 @@ func (a *App) InsertDataHandler(c echo.Context) error {
 	groupUUIDs := utils.ExtractGroupUUIDs(structure.Data.Children)
 	log.Printf("Fetched %d group UUIDs", len(groupUUIDs))
 
-	var wg sync.WaitGroup
+	totalItems := len(groupUUIDs)
+	if totalItems == 0 {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "No groups found"})
+	}
+
+	completed := 0
+	startTime := time.Now()
+
 	var mu sync.Mutex
+
+	// Initial progress update with lock
+	mu.Lock()
+	a.Hub.BroadcastProgress(ProgressUpdate{
+		Type:           "insertProgress",
+		CurrentItem:    0,
+		TotalItems:     totalItems,
+		CompletedItems: 0,
+		Percentage:     0,
+		ETA:            "Calculating...",
+	})
+	mu.Unlock()
+
+	var wg sync.WaitGroup
 	errors := make([]string, 0)
 	sem := make(chan struct{}, 8)                                   // Ограничение в 8 горутин
 	limiter := rate.NewLimiter(rate.Every(350*time.Millisecond), 8) // 8 запросов в 350 миллисекунд
@@ -59,13 +80,52 @@ func (a *App) InsertDataHandler(c echo.Context) error {
 				log.Printf("Failed to process data for group %s: %v", uuid, err)
 				utils.AppendError(&mu, &errors, fmt.Sprintf("Group %s: %v", uuid, err))
 			}
+
+			mu.Lock()
+			completed++
+			elapsed := time.Since(startTime)
+			itemsPerSecond := float64(completed) / elapsed.Seconds()
+			remainingItems := totalItems - completed
+			eta := time.Duration(float64(remainingItems)/itemsPerSecond) * time.Second
+
+			// Send progress update
+			a.Hub.BroadcastProgress(ProgressUpdate{
+				Type:           "insertProgress",
+				CurrentItem:    completed,
+				TotalItems:     totalItems,
+				CompletedItems: completed,
+				Percentage:     float64(completed) / float64(totalItems) * 100,
+				ETA:            eta.Round(time.Second).String(),
+			})
+			mu.Unlock()
 		}(uuid)
 	}
 
 	wg.Wait()
 
+	// Final progress update
+	a.Hub.BroadcastProgress(ProgressUpdate{
+		Type:           "insertProgress",
+		CurrentItem:    totalItems,
+		TotalItems:     totalItems,
+		CompletedItems: totalItems,
+		Percentage:     100,
+		ETA:            "0s",
+	})
+
 	if len(errors) > 0 {
-		return c.JSON(http.StatusInternalServerError, map[string]any{"errors": errors})
+		if completed == 0 {
+			return c.JSON(http.StatusInternalServerError, map[string]string{
+				"error":   "All groups failed to process",
+				"details": fmt.Sprintf("%v", errors),
+			})
+		}
+		return c.JSON(http.StatusOK, map[string]interface{}{
+			"message":   "Partially completed with errors",
+			"completed": completed,
+			"total":     totalItems,
+			"errors":    errors,
+		})
 	}
 
 	return c.JSON(http.StatusOK, map[string]string{"message": "Data inserted successfully"})

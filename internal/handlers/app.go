@@ -3,5 +3,6 @@ package handlers
 import "gorm.io/gorm"
 
 type App struct {
-	DB *gorm.DB
+	DB  *gorm.DB
+	Hub *WebSocketHub
 }

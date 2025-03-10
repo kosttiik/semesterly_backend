@@ -20,7 +20,8 @@ import (
 )
 
 type App struct {
-	DB *gorm.DB
+	DB  *gorm.DB
+	Hub *handlers.WebSocketHub
 }
 
 var (
@@ -95,8 +96,12 @@ func New() (*App, error) {
 		return nil, fmt.Errorf("failed to migrate database: %w", err)
 	}
 
+	hub := handlers.NewWebSocketHub()
+	go hub.Run()
+
 	return &App{
-		DB: db,
+		DB:  db,
+		Hub: hub,
 	}, nil
 }
 
@@ -120,7 +125,8 @@ func (a *App) RegisterRoutes(e *echo.Echo) {
 	}))
 
 	h := &handlers.App{
-		DB: a.DB,
+		DB:  a.DB,
+		Hub: a.Hub,
 	}
 
 	// Документация Swagger
@@ -135,6 +141,8 @@ func (a *App) RegisterRoutes(e *echo.Echo) {
 	e.GET("/api/v1/get-group-schedule/:uuid", h.GetGroupScheduleHandler)
 
 	e.POST("/api/v1/write-schedule", h.WriteScheduleToFileHandler)
+
+	e.GET("/ws", h.HandleWebSocket)
 }
 
 // customLogger для форматирования логов с использованием LOG_TIME_FORMAT
