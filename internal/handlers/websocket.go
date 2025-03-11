@@ -43,7 +43,7 @@ var upgrader = websocket.Upgrader{
 func NewWebSocketHub() *WebSocketHub {
 	return &WebSocketHub{
 		clients:    make(map[*Client]bool),
-		broadcast:  make(chan []byte, 256), // Add buffer to prevent blocking
+		broadcast:  make(chan []byte, 256), // Добавляем буферизированный канал для избежания блокировки
 		register:   make(chan *Client),
 		unregister: make(chan *Client),
 	}
@@ -82,7 +82,7 @@ func (h *WebSocketHub) BroadcastProgress(update ProgressUpdate) {
 	h.mu.Lock()
 	if len(h.clients) == 0 {
 		h.mu.Unlock()
-		return // No clients connected, skip broadcast
+		return // Нет подключенных клиентов, сворачиваем работу
 	}
 	h.mu.Unlock()
 
@@ -94,7 +94,7 @@ func (h *WebSocketHub) BroadcastProgress(update ProgressUpdate) {
 
 	select {
 	case h.broadcast <- data:
-		// Message sent successfully
+		// Сообщение успешно отправлено
 	default:
 		log.Printf("Broadcast channel is full, progress update dropped")
 	}

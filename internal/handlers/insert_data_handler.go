@@ -12,6 +12,7 @@ import (
 	"github.com/kosttiik/semesterly_backend/internal/utils"
 	"github.com/labstack/echo/v4"
 	"golang.org/x/time/rate"
+	"gorm.io/gorm"
 )
 
 // InsertDataHandler обрабатывает вставку данных в базу данных
@@ -45,7 +46,7 @@ func (a *App) InsertDataHandler(c echo.Context) error {
 
 	var mu sync.Mutex
 
-	// Initial progress update with lock
+	// Отправляем начальное состояние прогресса
 	mu.Lock()
 	a.Hub.BroadcastProgress(ProgressUpdate{
 		Type:           "insertProgress",
@@ -59,8 +60,8 @@ func (a *App) InsertDataHandler(c echo.Context) error {
 
 	var wg sync.WaitGroup
 	errors := make([]string, 0)
-	sem := make(chan struct{}, 8)                                   // Ограничение в 8 горутин
-	limiter := rate.NewLimiter(rate.Every(350*time.Millisecond), 8) // 8 запросов в 350 миллисекунд
+	sem := make(chan struct{}, 10)                                   // Ограничение в 10 горутин
+	limiter := rate.NewLimiter(rate.Every(100*time.Millisecond), 10) // 10 запросов в 100 миллисекунд
 
 	for _, uuid := range groupUUIDs {
 		sem <- struct{}{}
@@ -88,7 +89,7 @@ func (a *App) InsertDataHandler(c echo.Context) error {
 			remainingItems := totalItems - completed
 			eta := time.Duration(float64(remainingItems)/itemsPerSecond) * time.Second
 
-			// Send progress update
+			// Отправляем состояние прогресса
 			a.Hub.BroadcastProgress(ProgressUpdate{
 				Type:           "insertProgress",
 				CurrentItem:    completed,
@@ -103,7 +104,7 @@ func (a *App) InsertDataHandler(c echo.Context) error {
 
 	wg.Wait()
 
-	// Final progress update
+	// Финальное состояние прогресса
 	a.Hub.BroadcastProgress(ProgressUpdate{
 		Type:           "insertProgress",
 		CurrentItem:    totalItems,
@@ -142,16 +143,270 @@ func (a *App) processGroupData(uuid string, mu *sync.Mutex, errors *[]string) er
 		utils.AppendError(mu, errors, fmt.Sprintf("Failed to fetch schedule for group %s", uuid))
 		return err
 	}
-	log.Printf("Fetched schedule for group %s", uuid)
 
 	if err := utils.FetchJSON(examURL, &exams); err != nil {
 		utils.AppendError(mu, errors, fmt.Sprintf("Failed to fetch exams for group %s", uuid))
 		return err
 	}
-	log.Printf("Fetched exams for group %s", uuid)
 
-	if err := a.insertToDatabase(schedule.Data.Schedule, exams.Data, mu, errors); err != nil {
+	// Получаем существующие записи расписания для сравнения
+	var existingSchedules []models.ScheduleItem
+	if err := a.DB.
+		Preload("Groups", "groups.uuid = ?", uuid).
+		Preload("Teachers").
+		Preload("Audiences").
+		Preload("Disciplines").
+		Joins("JOIN schedule_item_groups ON schedule_item_groups.schedule_item_id = schedule_items.id").
+		Joins("JOIN groups ON groups.id = schedule_item_groups.group_id").
+		Where("groups.uuid = ?", uuid).
+		Find(&existingSchedules).Error; err != nil {
+		utils.AppendError(mu, errors, fmt.Sprintf("Failed to fetch existing schedules for group %s", err))
 		return err
+	}
+
+	// Получаем существующие записи экзаменов для сравнения
+	var existingExams []models.Exam
+	if len(exams.Data) > 0 {
+		if err := a.DB.
+			Preload("Disciplines").
+			Where("room = ? AND last_name = ? AND first_name = ? AND middle_name = ?",
+				exams.Data[0].Room, exams.Data[0].LastName, exams.Data[0].FirstName, exams.Data[0].MiddleName).
+			Find(&existingExams).Error; err != nil {
+			utils.AppendError(mu, errors, fmt.Sprintf("Failed to fetch existing exams for group %s", err))
+			return err
+		}
+	}
+
+	// Сравниваем расписание и экзамены с существующими данными
+	changes := false
+	if !compareSchedules(existingSchedules, schedule.Data.Schedule) {
+		changes = true
+
+		if err := a.DB.Transaction(func(tx *gorm.DB) error {
+			var existingItems []models.ScheduleItem
+			if err := tx.
+				Preload("Groups", "groups.uuid = ?", uuid).
+				Joins("JOIN schedule_item_groups ON schedule_items.id = schedule_item_groups.schedule_item_id").
+				Joins("JOIN groups ON groups.id = schedule_item_groups.group_id").
+				Where("groups.uuid = ?", uuid).
+				Find(&existingItems).Error; err != nil {
+				return err
+			}
+
+			for _, item := range existingItems {
+				// Удаляем ассоциации с группами, преподавателями, аудиториями и дисциплинами
+				if err := tx.Model(&item).Association("Disciplines").Clear(); err != nil {
+					return err
+				}
+				if err := tx.Model(&item).Association("Teachers").Clear(); err != nil {
+					return err
+				}
+				if err := tx.Model(&item).Association("Audiences").Clear(); err != nil {
+					return err
+				}
+				if err := tx.Model(&item).Association("Groups").Clear(); err != nil {
+					return err
+				}
+
+				// Удаляем элемент расписания
+				if err := tx.Delete(&item).Error; err != nil {
+					return err
+				}
+			}
+			return nil
+		}); err != nil {
+			utils.AppendError(mu, errors, fmt.Sprintf("Failed to clean up old schedule items for group %s: %v", uuid, err))
+			return err
+		}
+
+		// Вставляем новые данные
+		if err := a.insertToDatabase(schedule.Data.Schedule, exams.Data, mu, errors); err != nil {
+			return err
+		}
+	} else {
+		// Проверяем экзамены
+		if !compareExams(existingExams, exams.Data) {
+			changes = true
+			// Обновляем только экзамены
+			if err := a.insertExamsToDatabase(exams.Data, mu, errors); err != nil {
+				return err
+			}
+		}
+	}
+
+	if changes {
+		log.Printf("Updated data for group %s - found changes", uuid)
+	} else {
+		log.Printf("No changes needed for group %s", uuid)
+	}
+
+	return nil
+}
+
+// compareSchedules сравнивает два слайса элементов расписания
+func compareSchedules(existing []models.ScheduleItem, new []models.ScheduleItem) bool {
+	if len(existing) != len(new) {
+		return false
+	}
+
+	// Создаем map для быстрого поиска
+	existingMap := make(map[string]models.ScheduleItem)
+	for _, item := range existing {
+		key := fmt.Sprintf("%d-%d-%s-%s-%s-%s",
+			item.Day, item.Time, item.Week, item.StartTime, item.EndTime, item.Stream)
+		existingMap[key] = item
+	}
+
+	// Сравниваем каждый новый элемент
+	for _, item := range new {
+		key := fmt.Sprintf("%d-%d-%s-%s-%s-%s",
+			item.Day, item.Time, item.Week, item.StartTime, item.EndTime, item.Stream)
+
+		existingItem, exists := existingMap[key]
+		if !exists {
+			return false
+		}
+
+		// Сравниваем группы, преподавателей, аудитории и дисциплины
+		if !compareGroups(existingItem.Groups, item.Groups) ||
+			!compareTeachers(existingItem.Teachers, item.Teachers) ||
+			!compareAudiences(existingItem.Audiences, item.Audiences) ||
+			!compareDisciplines(existingItem.Disciplines, []models.Discipline{item.DisciplineRaw}) {
+			return false
+		}
+	}
+
+	return true
+}
+
+func compareGroups(a, b []models.Group) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	aMap := make(map[string]bool)
+	for _, g := range a {
+		aMap[g.UUID] = true
+	}
+	for _, g := range b {
+		if !aMap[g.UUID] {
+			return false
+		}
+	}
+	return true
+}
+
+func compareTeachers(a, b []models.Teacher) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	aMap := make(map[string]bool)
+	for _, t := range a {
+		aMap[t.UUID] = true
+	}
+	for _, t := range b {
+		if !aMap[t.UUID] {
+			return false
+		}
+	}
+	return true
+}
+
+func compareAudiences(a, b []models.Audience) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	aMap := make(map[string]bool)
+	for _, aud := range a {
+		aMap[aud.UUID] = true
+	}
+	for _, aud := range b {
+		if !aMap[aud.UUID] {
+			return false
+		}
+	}
+	return true
+}
+
+func compareDisciplines(a []models.Discipline, b []models.Discipline) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	aMap := make(map[string]bool)
+	for _, d := range a {
+		aMap[d.FullName] = true
+	}
+	for _, d := range b {
+		if !aMap[d.FullName] {
+			return false
+		}
+	}
+	return true
+}
+
+func compareExams(existing []models.Exam, new []models.Exam) bool {
+	if len(existing) != len(new) {
+		return false
+	}
+
+	existingMap := make(map[string]bool)
+	for _, exam := range existing {
+		key := fmt.Sprintf("%s-%s-%s-%s-%s-%s",
+			exam.Room, exam.ExamDate, exam.ExamTime,
+			exam.LastName, exam.FirstName, exam.MiddleName)
+		existingMap[key] = true
+	}
+
+	for _, exam := range new {
+		key := fmt.Sprintf("%s-%s-%s-%s-%s-%s",
+			exam.Room, exam.ExamDate, exam.ExamTime,
+			exam.LastName, exam.FirstName, exam.MiddleName)
+		if !existingMap[key] {
+			return false
+		}
+	}
+
+	return true
+}
+
+func (a *App) insertExamsToDatabase(examItems []models.Exam, mu *sync.Mutex, errors *[]string) error {
+	for _, item := range examItems {
+		// Сохраняем дисциплину
+		var dbDiscipline models.Discipline
+		if err := a.DB.Where("full_name = ?", item.DisciplineRaw).
+			FirstOrCreate(&dbDiscipline, models.Discipline{
+				FullName: item.DisciplineRaw,
+			}).Error; err != nil {
+			utils.AppendError(mu, errors, fmt.Sprintf("Failed to insert exam discipline: %v", err))
+			continue
+		}
+
+		// Создаем экзамен
+		newExam := models.Exam{
+			Room:       item.Room,
+			ExamDate:   item.ExamDate,
+			ExamTime:   item.ExamTime,
+			LastName:   item.LastName,
+			FirstName:  item.FirstName,
+			MiddleName: item.MiddleName,
+		}
+
+		var existingExam models.Exam
+		if err := a.DB.Where(&models.Exam{
+			Room:       newExam.Room,
+			ExamDate:   newExam.ExamDate,
+			ExamTime:   newExam.ExamTime,
+			LastName:   newExam.LastName,
+			FirstName:  newExam.FirstName,
+			MiddleName: newExam.MiddleName,
+		}).FirstOrCreate(&existingExam).Error; err != nil {
+			utils.AppendError(mu, errors, fmt.Sprintf("Failed to insert exam item: %v", err))
+			continue
+		}
+
+		// Связываем дисциплину с экзаменом
+		if err := a.DB.Model(&existingExam).Association("Disciplines").Append(&dbDiscipline); err != nil {
+			utils.AppendError(mu, errors, fmt.Sprintf("Failed to associate discipline with exam: %v", err))
+		}
 	}
 
 	return nil
