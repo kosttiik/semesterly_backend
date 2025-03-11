@@ -140,6 +140,7 @@ func (a *App) RegisterRoutes(e *echo.Echo) {
 	e.GET("/api/v1/get-groups", h.GetGroupsHandler)
 	e.GET("/api/v1/get-data", h.GetDataHandler)
 	e.GET("/api/v1/get-group-schedule/:uuid", h.GetGroupScheduleHandler)
+	e.GET("/api/v1/get-teachers", h.GetTeachersHandler)
 
 	e.POST("/api/v1/write-schedule", h.WriteScheduleToFileHandler)
 
