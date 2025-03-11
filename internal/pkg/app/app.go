@@ -132,7 +132,8 @@ func (a *App) RegisterRoutes(e *echo.Echo) {
 	// Документация Swagger
 	e.GET("/docs/*", echoSwagger.WrapHandler)
 
-	e.GET("/api/v1/hello", h.HelloHandler)
+	e.GET("/ping", h.PingHandler)
+
 	e.POST("/api/v1/insert-data", h.InsertDataHandler)
 	e.POST("/api/v1/insert-group-schedule/:uuid", h.InsertGroupScheduleHandler)
 

@@ -129,29 +129,6 @@ const docTemplate = `{
                 }
             }
         },
-        "/hello": {
-            "get": {
-                "description": "Проверяет, работает ли сервер и есть ли подключение к базе данных",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Hello"
-                ],
-                "summary": "Проверка подключения",
-                "responses": {
-                    "200": {
-                        "description": "Hello, World!",
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                }
-            }
-        },
         "/insert-data": {
             "post": {
                 "description": "Вставляет данные расписания и экзаменов в базу данных",
@@ -222,6 +199,29 @@ const docTemplate = `{
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/ping": {
+            "get": {
+                "description": "Проверяет, работает ли сервер и есть ли подключение к базе данных",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Ping"
+                ],
+                "summary": "Проверка подключения",
+                "responses": {
+                    "200": {
+                        "description": "Pong! Connected to the database successfully.",
+                        "schema": {
+                            "type": "string"
                         }
                     }
                 }

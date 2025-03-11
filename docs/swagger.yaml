@@ -173,21 +173,6 @@ paths:
       summary: Получение списка групп
       tags:
       - GetGroups
-  /hello:
-    get:
-      consumes:
-      - application/json
-      description: Проверяет, работает ли сервер и есть ли подключение к базе данных
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: Hello, World!
-          schema:
-            type: string
-      summary: Проверка подключения
-      tags:
-      - Hello
   /insert-data:
     post:
       consumes:
@@ -239,6 +224,21 @@ paths:
       summary: Вставка расписания группы
       tags:
       - InsertGroupSchedule
+  /ping:
+    get:
+      consumes:
+      - application/json
+      description: Проверяет, работает ли сервер и есть ли подключение к базе данных
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Pong! Connected to the database successfully.
+          schema:
+            type: string
+      summary: Проверка подключения
+      tags:
+      - Ping
   /write-schedule:
     post:
       consumes:

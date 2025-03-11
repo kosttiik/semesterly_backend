@@ -18,9 +18,9 @@ func TestHelloHandler(t *testing.T) {
 	// Создание приложения без подключения к БД (для теста)
 	app := &App{}
 
-	// Тест обработчика HelloHandler
-	if assert.NoError(t, app.HelloHandler(c)) {
+	// Тест обработчика PingHandler
+	if assert.NoError(t, app.PingHandler(c)) {
 		assert.Equal(t, http.StatusOK, rec.Code)
-		assert.Equal(t, "Hello, World! Connected to the database successfully.", rec.Body.String())
+		assert.Equal(t, "Pong! Connected to the database successfully.", rec.Body.String())
 	}
 }
