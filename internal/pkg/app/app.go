@@ -132,18 +132,28 @@ func (a *App) RegisterRoutes(e *echo.Echo) {
 	// Документация Swagger
 	e.GET("/docs/*", echoSwagger.WrapHandler)
 
+	// Проверка соединения
 	e.GET("/api/v1/ping", h.PingHandler)
 
+	// Вставка всех записей расписания, отдельной группы
 	e.POST("/api/v1/insert-data", h.InsertDataHandler)
 	e.POST("/api/v1/insert-group-schedule/:uuid", h.InsertGroupScheduleHandler)
 
-	e.GET("/api/v1/get-groups", h.GetGroupsHandler)
+	// Получение всех записей расписания
 	e.GET("/api/v1/get-data", h.GetDataHandler)
-	e.GET("/api/v1/get-group-schedule/:uuid", h.GetGroupScheduleHandler)
-	e.GET("/api/v1/get-teachers", h.GetTeachersHandler)
 
+	// Получение списка групп и расписания группы
+	e.GET("/api/v1/get-groups", h.GetGroupsHandler)
+	e.GET("/api/v1/get-group-schedule/:uuid", h.GetGroupScheduleHandler)
+
+	// Получение списка преподавателей и расписания преподавателя
+	e.GET("/api/v1/get-teachers", h.GetTeachersHandler)
+	e.GET("/api/v1/get-teacher-schedule/:uuid", h.GetTeacherScheduleHandler)
+
+	// Запись расписания в файл (CSV)
 	e.POST("/api/v1/write-schedule", h.WriteScheduleToFileHandler)
 
+	// WebSocket
 	e.GET("/ws", h.HandleWebSocket)
 }
 

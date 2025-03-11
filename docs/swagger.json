@@ -123,6 +123,85 @@
                 }
             }
         },
+        "/get-teacher-schedule/{uuid}": {
+            "get": {
+                "description": "Возвращает данные расписания конкретного преподавателя из базы данных в формате JSON",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "GetData"
+                ],
+                "summary": "Получение расписания преподавателя",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "UUID преподавателя",
+                        "name": "uuid",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Список элементов расписания",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/models.ScheduleItem"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "error: Failed to fetch schedule items",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/get-teachers": {
+            "get": {
+                "description": "Возвращает данные всех преподавателей из базы данных в формате JSON",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "GetTeachers"
+                ],
+                "summary": "Получение списка преподавателей",
+                "responses": {
+                    "200": {
+                        "description": "Список преподавателей",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/models.Teacher"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "error: Failed to fetch teachers",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/insert-data": {
             "post": {
                 "description": "Вставляет данные расписания и экзаменов в базу данных",

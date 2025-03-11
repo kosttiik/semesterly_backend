@@ -173,6 +173,60 @@ paths:
       summary: Получение списка групп
       tags:
       - GetGroups
+  /get-teacher-schedule/{uuid}:
+    get:
+      consumes:
+      - application/json
+      description: Возвращает данные расписания конкретного преподавателя из базы
+        данных в формате JSON
+      parameters:
+      - description: UUID преподавателя
+        in: path
+        name: uuid
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Список элементов расписания
+          schema:
+            items:
+              $ref: '#/definitions/models.ScheduleItem'
+            type: array
+        "500":
+          description: 'error: Failed to fetch schedule items'
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Получение расписания преподавателя
+      tags:
+      - GetData
+  /get-teachers:
+    get:
+      consumes:
+      - application/json
+      description: Возвращает данные всех преподавателей из базы данных в формате
+        JSON
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Список преподавателей
+          schema:
+            items:
+              $ref: '#/definitions/models.Teacher'
+            type: array
+        "500":
+          description: 'error: Failed to fetch teachers'
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Получение списка преподавателей
+      tags:
+      - GetTeachers
   /insert-data:
     post:
       consumes:
