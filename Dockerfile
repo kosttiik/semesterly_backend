@@ -5,12 +5,18 @@ WORKDIR /usr/src/semesterly
 COPY go.mod go.sum ./
 RUN go mod download
 
-COPY . .
-COPY .env .env
+COPY cmd/semesterly/ ./cmd/semesterly/
+COPY internal/ ./internal/
+COPY docs/ ./docs/
 
-RUN go build -o main ./cmd/semesterly
+RUN go build -tags musl -o main ./cmd/semesterly
 
 FROM alpine:3.21
+
+RUN apk add --no-cache tzdata
+
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+USER appuser
 
 WORKDIR /usr/src/semesterly
 

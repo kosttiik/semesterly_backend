@@ -13,7 +13,7 @@ import (
 // @Accept json
 // @Produce json
 // @Success 200 {string} string "Hello, World!"
-// @Router /api/v1/hello [get]
+// @Router /hello [get]
 func (a *App) HelloHandler(c echo.Context) error {
 	return c.String(http.StatusOK, "Hello, World! Connected to the database successfully.")
 }

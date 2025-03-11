@@ -16,16 +16,16 @@ import (
 // @Param uuid path string true "UUID группы"
 // @Success 200 {array} models.ScheduleItem "Список элементов расписания"
 // @Failure 500 {object} map[string]string "error: Failed to fetch schedule items"
-// @Router /api/v1/get-group-schedule/{uuid} [get]
+// @Router /get-group-schedule/{uuid} [get]
 func (a *App) GetGroupScheduleHandler(c echo.Context) error {
 	uuid := c.Param("uuid")
 	var scheduleItems []models.ScheduleItem
 
-	// Загрузка расписания для группы через связь многие-ко-многим
 	if err := a.DB.
 		Preload("Groups").
 		Preload("Teachers").
 		Preload("Audiences").
+		Preload("Disciplines").
 		Joins("JOIN schedule_item_groups ON schedule_item_groups.schedule_item_id = schedule_items.id").
 		Joins("JOIN groups ON groups.id = schedule_item_groups.group_id").
 		Where("groups.uuid = ?", uuid).

@@ -4,17 +4,12 @@ definitions:
     properties:
       building:
         type: string
-      created_at:
-        type: string
-      deleted_at:
-        type: string
       department_uid:
+        description: Может быть null
         type: string
       id:
         type: integer
       name:
-        type: string
-      updated_at:
         type: string
       uuid:
         type: string
@@ -25,32 +20,20 @@ definitions:
         type: string
       actType:
         type: string
-      created_at:
-        type: string
-      deleted_at:
-        type: string
       fullName:
         type: string
       id:
         type: integer
       shortName:
         type: string
-      updated_at:
-        type: string
     type: object
   models.Group:
     properties:
-      created_at:
-        type: string
-      deleted_at:
-        type: string
       department_uid:
         type: string
       id:
         type: integer
       name:
-        type: string
-      updated_at:
         type: string
       uuid:
         type: string
@@ -61,16 +44,16 @@ definitions:
         items:
           $ref: '#/definitions/models.Audience'
         type: array
-      created_at:
-        type: string
       day:
         type: integer
-      deleted_at:
-        type: string
       discipline:
-        $ref: '#/definitions/models.Discipline'
-      discipline_id:
-        type: integer
+        allOf:
+        - $ref: '#/definitions/models.Discipline'
+        description: Временное поле для парсинга JSON
+      disciplines:
+        items:
+          $ref: '#/definitions/models.Discipline'
+        type: array
       endTime:
         type: string
       groups:
@@ -81,9 +64,6 @@ definitions:
         type: integer
       permission:
         type: string
-      schedule_id:
-        description: Связь с Schedule
-        type: integer
       startTime:
         type: string
       stream:
@@ -94,17 +74,11 @@ definitions:
         type: array
       time:
         type: integer
-      updated_at:
-        type: string
       week:
         type: string
     type: object
   models.Teacher:
     properties:
-      created_at:
-        type: string
-      deleted_at:
-        type: string
       firstName:
         type: string
       id:
@@ -112,8 +86,6 @@ definitions:
       lastName:
         type: string
       middleName:
-        type: string
-      updated_at:
         type: string
       uuid:
         type: string
@@ -125,7 +97,7 @@ info:
   title: Автоматизированная система по ведению расписания учебных занятий
   version: "1.0"
 paths:
-  /api/v1/get-data:
+  /get-data:
     get:
       consumes:
       - application/json
@@ -148,7 +120,7 @@ paths:
       summary: Получение расписания
       tags:
       - GetData
-  /api/v1/get-group-schedule/{uuid}:
+  /get-group-schedule/{uuid}:
     get:
       consumes:
       - application/json
@@ -178,7 +150,30 @@ paths:
       summary: Получение расписания группы
       tags:
       - GetData
-  /api/v1/hello:
+  /get-groups:
+    get:
+      consumes:
+      - application/json
+      description: Возвращает данные всех групп из базы данных в формате JSON
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Список групп
+          schema:
+            items:
+              $ref: '#/definitions/models.Group'
+            type: array
+        "500":
+          description: 'error: Failed to fetch groups'
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Получение списка групп
+      tags:
+      - GetGroups
+  /hello:
     get:
       consumes:
       - application/json
@@ -193,7 +188,7 @@ paths:
       summary: Проверка подключения
       tags:
       - Hello
-  /api/v1/insert-data:
+  /insert-data:
     post:
       consumes:
       - application/json
@@ -215,7 +210,7 @@ paths:
       summary: Вставка данных
       tags:
       - InsertData
-  /api/v1/insert-group-schedule/{uuid}:
+  /insert-group-schedule/{uuid}:
     post:
       consumes:
       - application/json
@@ -244,7 +239,7 @@ paths:
       summary: Вставка расписания группы
       tags:
       - InsertGroupSchedule
-  /api/v1/write-schedule:
+  /write-schedule:
     post:
       consumes:
       - application/json

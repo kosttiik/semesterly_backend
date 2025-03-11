@@ -15,12 +15,16 @@ import (
 // @Produce json
 // @Success 200 {array} models.ScheduleItem "Список элементов расписания"
 // @Failure 500 {object} map[string]string "error: Failed to fetch schedule items"
-// @Router /api/v1/get-data [get]
+// @Router /get-data [get]
 func (a *App) GetDataHandler(c echo.Context) error {
 	var scheduleItems []models.ScheduleItem
 
-	// Загрузка данных с подгрузкой групп, аудиторий и преподавателей
-	if err := a.DB.Preload("Groups").Preload("Teachers").Preload("Audiences").Find(&scheduleItems).Error; err != nil {
+	if err := a.DB.
+		Preload("Groups").
+		Preload("Teachers").
+		Preload("Audiences").
+		Preload("Disciplines").
+		Find(&scheduleItems).Error; err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to fetch schedule items"})
 	}
 

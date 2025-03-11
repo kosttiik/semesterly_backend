@@ -19,12 +19,12 @@ import (
 // @Produce json
 // @Success 200 {object} map[string]string "message: Schedule written to file successfully"
 // @Failure 500 {object} map[string]string "error: Failed to fetch schedule items" "error: Failed to write schedule to file"
-// @Router /api/v1/write-schedule [post]
+// @Router /write-schedule [post]
 func (a *App) WriteScheduleToFileHandler(c echo.Context) error {
 	var scheduleItems []models.ScheduleItem
 
-	// Загрузка данных с подгрузкой групп, аудиторий и преподавателей
-	if err := a.DB.Preload("Groups").Preload("Teachers").Preload("Audiences").Find(&scheduleItems).Error; err != nil {
+	// Загрузка данных с подгрузкой связанных сущностей
+	if err := a.DB.Preload("Groups").Preload("Teachers").Preload("Audiences").Preload("Disciplines").Find(&scheduleItems).Error; err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to fetch schedule items"})
 	}
 
@@ -48,9 +48,31 @@ func writeToCSV(filePath string, scheduleItems []models.ScheduleItem) error {
 	defer writer.Flush()
 
 	// Заголовки CSV
-	writer.Write([]string{"Day", "Time", "Week", "Stream", "EndTime", "StartTime", "Discipline", "Permission", "Teachers", "Audiences", "Groups"})
+	writer.Write([]string{
+		"Day",
+		"Time",
+		"Week",
+		"Stream",
+		"EndTime",
+		"StartTime",
+		"DisciplineAbbr",
+		"DisciplineActType",
+		"DisciplineFullName",
+		"DisciplineShortName",
+		"Teachers",
+		"Audiences",
+		"Groups",
+	})
 
 	for _, item := range scheduleItems {
+		var disciplineAbbr, disciplineActType, disciplineFullName, disciplineShortName string
+		if len(item.Disciplines) > 0 {
+			disciplineAbbr = item.Disciplines[0].Abbr
+			disciplineActType = item.Disciplines[0].ActType
+			disciplineFullName = item.Disciplines[0].FullName
+			disciplineShortName = item.Disciplines[0].ShortName
+		}
+
 		// Форматирование списка преподавателей
 		teachers := make([]string, len(item.Teachers))
 		for i, teacher := range item.Teachers {
@@ -77,8 +99,10 @@ func writeToCSV(filePath string, scheduleItems []models.ScheduleItem) error {
 			item.Stream,
 			item.EndTime,
 			item.StartTime,
-			item.Discipline.FullName,
-			item.Permission,
+			disciplineAbbr,
+			disciplineActType,
+			disciplineFullName,
+			disciplineShortName,
 			strings.Join(teachers, "; "),
 			strings.Join(audiences, "; "),
 			strings.Join(groups, "; "),

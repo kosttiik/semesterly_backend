@@ -20,7 +20,7 @@ import (
 // @Param uuid path string true "UUID группы"
 // @Success 200 {object} map[string]string "message: Group schedule inserted successfully"
 // @Failure 500 {object} map[string]interface{} "errors: [error messages]"
-// @Router /api/v1/insert-group-schedule/{uuid} [post]
+// @Router /insert-group-schedule/{uuid} [post]
 func (a *App) InsertGroupScheduleHandler(c echo.Context) error {
 	uuid := c.Param("uuid")
 	var wg sync.WaitGroup
@@ -76,6 +76,20 @@ func (a *App) insertGroupToDatabase(scheduleItems []models.ScheduleItem, examIte
 	var insertedScheduleItems, insertedExamItems int
 
 	for _, item := range scheduleItems {
+		// Сохраняем дисциплину
+		var dbDiscipline models.Discipline
+		if err := a.DB.Where("abbr = ? AND act_type = ? AND full_name = ? AND short_name = ?",
+			item.DisciplineRaw.Abbr, item.DisciplineRaw.ActType, item.DisciplineRaw.FullName, item.DisciplineRaw.ShortName).
+			FirstOrCreate(&dbDiscipline, models.Discipline{
+				Abbr:      item.DisciplineRaw.Abbr,
+				ActType:   item.DisciplineRaw.ActType,
+				FullName:  item.DisciplineRaw.FullName,
+				ShortName: item.DisciplineRaw.ShortName,
+			}).Error; err != nil {
+			utils.AppendError(mu, errors, fmt.Sprintf("Failed to insert discipline: %v", err))
+			continue
+		}
+
 		// Создаем элемент расписания без ассоциаций
 		newItem := models.ScheduleItem{
 			Day:        item.Day,
@@ -84,11 +98,10 @@ func (a *App) insertGroupToDatabase(scheduleItems []models.ScheduleItem, examIte
 			Stream:     item.Stream,
 			StartTime:  item.StartTime,
 			EndTime:    item.EndTime,
-			Discipline: item.Discipline,
 			Permission: item.Permission,
 		}
 
-		// Ищем или создаем элемент расписания по уникальным полям
+		// Ищем или создаем элемент расписания
 		var existingItem models.ScheduleItem
 		if err := a.DB.Where(&models.ScheduleItem{
 			Day:        newItem.Day,
@@ -97,13 +110,17 @@ func (a *App) insertGroupToDatabase(scheduleItems []models.ScheduleItem, examIte
 			Stream:     newItem.Stream,
 			StartTime:  newItem.StartTime,
 			EndTime:    newItem.EndTime,
-			Discipline: newItem.Discipline,
 			Permission: newItem.Permission,
 		}).FirstOrCreate(&existingItem).Error; err != nil {
 			utils.AppendError(mu, errors, fmt.Sprintf("Failed to insert schedule item: %v", err))
 			continue
 		}
 		insertedScheduleItems++
+
+		// Связываем дисциплину с элементом расписания
+		if err := a.DB.Model(&existingItem).Association("Disciplines").Append(&dbDiscipline); err != nil {
+			utils.AppendError(mu, errors, fmt.Sprintf("Failed to associate discipline with schedule item: %v", err))
+		}
 
 		// Ассоциация с группами
 		for _, group := range item.Groups {
@@ -157,16 +174,44 @@ func (a *App) insertGroupToDatabase(scheduleItems []models.ScheduleItem, examIte
 	}
 
 	for _, item := range examItems {
-		if err := a.DB.Where(models.Exam{
+		// Сохраняем дисциплину
+		var dbDiscipline models.Discipline
+		if err := a.DB.Where("full_name = ?", item.DisciplineRaw).
+			FirstOrCreate(&dbDiscipline, models.Discipline{
+				FullName: item.DisciplineRaw,
+			}).Error; err != nil {
+			utils.AppendError(mu, errors, fmt.Sprintf("Failed to insert exam discipline: %v", err))
+			continue
+		}
+
+		// Создаем экзамен
+		newExam := models.Exam{
 			Room:       item.Room,
 			ExamDate:   item.ExamDate,
 			ExamTime:   item.ExamTime,
-			Discipline: item.Discipline,
-		}).FirstOrCreate(&item).Error; err != nil {
+			LastName:   item.LastName,
+			FirstName:  item.FirstName,
+			MiddleName: item.MiddleName,
+		}
+
+		var existingExam models.Exam
+		if err := a.DB.Where(&models.Exam{
+			Room:       newExam.Room,
+			ExamDate:   newExam.ExamDate,
+			ExamTime:   newExam.ExamTime,
+			LastName:   newExam.LastName,
+			FirstName:  newExam.FirstName,
+			MiddleName: newExam.MiddleName,
+		}).FirstOrCreate(&existingExam).Error; err != nil {
 			utils.AppendError(mu, errors, fmt.Sprintf("Failed to insert exam item: %v", err))
 			continue
 		}
 		insertedExamItems++
+
+		// Связываем дисциплину с экзаменом
+		if err := a.DB.Model(&existingExam).Association("Disciplines").Append(&dbDiscipline); err != nil {
+			utils.AppendError(mu, errors, fmt.Sprintf("Failed to associate discipline with exam: %v", err))
+		}
 	}
 
 	log.Printf("Inserted %d schedule items and %d exam items", insertedScheduleItems, insertedExamItems)

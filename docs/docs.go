@@ -15,7 +15,7 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
-        "/api/v1/get-data": {
+        "/get-data": {
             "get": {
                 "description": "Возвращает данные расписания из базы данных в формате JSON",
                 "consumes": [
@@ -50,7 +50,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/v1/get-group-schedule/{uuid}": {
+        "/get-group-schedule/{uuid}": {
             "get": {
                 "description": "Возвращает данные расписания конкретной группы из базы данных в формате JSON",
                 "consumes": [
@@ -94,7 +94,42 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/v1/hello": {
+        "/get-groups": {
+            "get": {
+                "description": "Возвращает данные всех групп из базы данных в формате JSON",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "GetGroups"
+                ],
+                "summary": "Получение списка групп",
+                "responses": {
+                    "200": {
+                        "description": "Список групп",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/models.Group"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "error: Failed to fetch groups",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/hello": {
             "get": {
                 "description": "Проверяет, работает ли сервер и есть ли подключение к базе данных",
                 "consumes": [
@@ -117,7 +152,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/v1/insert-data": {
+        "/insert-data": {
             "post": {
                 "description": "Вставляет данные расписания и экзаменов в базу данных",
                 "consumes": [
@@ -150,7 +185,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/v1/insert-group-schedule/{uuid}": {
+        "/insert-group-schedule/{uuid}": {
             "post": {
                 "description": "Вставляет данные расписания и экзаменов для конкретной группы в базу данных",
                 "consumes": [
@@ -192,7 +227,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/v1/write-schedule": {
+        "/write-schedule": {
             "post": {
                 "description": "Сохраняет данные расписания в CSV файл",
                 "consumes": [
@@ -235,22 +270,14 @@ const docTemplate = `{
                 "building": {
                     "type": "string"
                 },
-                "created_at": {
-                    "type": "string"
-                },
-                "deleted_at": {
-                    "type": "string"
-                },
                 "department_uid": {
+                    "description": "Может быть null",
                     "type": "string"
                 },
                 "id": {
                     "type": "integer"
                 },
                 "name": {
-                    "type": "string"
-                },
-                "updated_at": {
                     "type": "string"
                 },
                 "uuid": {
@@ -267,12 +294,6 @@ const docTemplate = `{
                 "actType": {
                     "type": "string"
                 },
-                "created_at": {
-                    "type": "string"
-                },
-                "deleted_at": {
-                    "type": "string"
-                },
                 "fullName": {
                     "type": "string"
                 },
@@ -281,21 +302,12 @@ const docTemplate = `{
                 },
                 "shortName": {
                     "type": "string"
-                },
-                "updated_at": {
-                    "type": "string"
                 }
             }
         },
         "models.Group": {
             "type": "object",
             "properties": {
-                "created_at": {
-                    "type": "string"
-                },
-                "deleted_at": {
-                    "type": "string"
-                },
                 "department_uid": {
                     "type": "string"
                 },
@@ -303,9 +315,6 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "name": {
-                    "type": "string"
-                },
-                "updated_at": {
                     "type": "string"
                 },
                 "uuid": {
@@ -322,20 +331,22 @@ const docTemplate = `{
                         "$ref": "#/definitions/models.Audience"
                     }
                 },
-                "created_at": {
-                    "type": "string"
-                },
                 "day": {
                     "type": "integer"
                 },
-                "deleted_at": {
-                    "type": "string"
-                },
                 "discipline": {
-                    "$ref": "#/definitions/models.Discipline"
+                    "description": "Временное поле для парсинга JSON",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.Discipline"
+                        }
+                    ]
                 },
-                "discipline_id": {
-                    "type": "integer"
+                "disciplines": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.Discipline"
+                    }
                 },
                 "endTime": {
                     "type": "string"
@@ -352,10 +363,6 @@ const docTemplate = `{
                 "permission": {
                     "type": "string"
                 },
-                "schedule_id": {
-                    "description": "Связь с Schedule",
-                    "type": "integer"
-                },
                 "startTime": {
                     "type": "string"
                 },
@@ -371,9 +378,6 @@ const docTemplate = `{
                 "time": {
                     "type": "integer"
                 },
-                "updated_at": {
-                    "type": "string"
-                },
                 "week": {
                     "type": "string"
                 }
@@ -382,12 +386,6 @@ const docTemplate = `{
         "models.Teacher": {
             "type": "object",
             "properties": {
-                "created_at": {
-                    "type": "string"
-                },
-                "deleted_at": {
-                    "type": "string"
-                },
                 "firstName": {
                     "type": "string"
                 },
@@ -398,9 +396,6 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "middleName": {
-                    "type": "string"
-                },
-                "updated_at": {
                     "type": "string"
                 },
                 "uuid": {
