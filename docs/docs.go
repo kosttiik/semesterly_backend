@@ -270,12 +270,6 @@ const docTemplate = `{
                 "building": {
                     "type": "string"
                 },
-                "created_at": {
-                    "type": "string"
-                },
-                "deleted_at": {
-                    "type": "string"
-                },
                 "department_uid": {
                     "description": "Может быть null",
                     "type": "string"
@@ -284,9 +278,6 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "name": {
-                    "type": "string"
-                },
-                "updated_at": {
                     "type": "string"
                 },
                 "uuid": {
@@ -303,12 +294,6 @@ const docTemplate = `{
                 "actType": {
                     "type": "string"
                 },
-                "created_at": {
-                    "type": "string"
-                },
-                "deleted_at": {
-                    "type": "string"
-                },
                 "fullName": {
                     "type": "string"
                 },
@@ -317,21 +302,12 @@ const docTemplate = `{
                 },
                 "shortName": {
                     "type": "string"
-                },
-                "updated_at": {
-                    "type": "string"
                 }
             }
         },
         "models.Group": {
             "type": "object",
             "properties": {
-                "created_at": {
-                    "type": "string"
-                },
-                "deleted_at": {
-                    "type": "string"
-                },
                 "department_uid": {
                     "type": "string"
                 },
@@ -339,9 +315,6 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "name": {
-                    "type": "string"
-                },
-                "updated_at": {
                     "type": "string"
                 },
                 "uuid": {
@@ -358,14 +331,8 @@ const docTemplate = `{
                         "$ref": "#/definitions/models.Audience"
                     }
                 },
-                "created_at": {
-                    "type": "string"
-                },
                 "day": {
                     "type": "integer"
-                },
-                "deleted_at": {
-                    "type": "string"
                 },
                 "discipline": {
                     "description": "Временное поле для парсинга JSON",
@@ -411,9 +378,6 @@ const docTemplate = `{
                 "time": {
                     "type": "integer"
                 },
-                "updated_at": {
-                    "type": "string"
-                },
                 "week": {
                     "type": "string"
                 }
@@ -422,12 +386,6 @@ const docTemplate = `{
         "models.Teacher": {
             "type": "object",
             "properties": {
-                "created_at": {
-                    "type": "string"
-                },
-                "deleted_at": {
-                    "type": "string"
-                },
                 "firstName": {
                     "type": "string"
                 },
@@ -438,9 +396,6 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "middleName": {
-                    "type": "string"
-                },
-                "updated_at": {
                     "type": "string"
                 },
                 "uuid": {
