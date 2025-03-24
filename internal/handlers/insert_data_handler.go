@@ -60,8 +60,8 @@ func (a *App) InsertDataHandler(c echo.Context) error {
 
 	var wg sync.WaitGroup
 	errors := make([]string, 0)
-	sem := make(chan struct{}, 10)                                   // Ограничение в 10 горутин
-	limiter := rate.NewLimiter(rate.Every(100*time.Millisecond), 10) // 10 запросов в 100 миллисекунд
+	sem := make(chan struct{}, 8)                                   // Ограничение в 8 горутин
+	limiter := rate.NewLimiter(rate.Every(75*time.Millisecond), 16) // 16 запросов в 75 миллисекунд
 
 	for _, uuid := range groupUUIDs {
 		sem <- struct{}{}
@@ -441,76 +441,71 @@ func (a *App) insertToDatabase(scheduleItems []models.ScheduleItem, examItems []
 			Permission: item.Permission,
 		}
 
-		// Ищем или создаем элемент расписания
-		var existingItem models.ScheduleItem
-		if err := a.DB.Where(&models.ScheduleItem{
-			Day:        newItem.Day,
-			Time:       newItem.Time,
-			Week:       newItem.Week,
-			Stream:     newItem.Stream,
-			StartTime:  newItem.StartTime,
-			EndTime:    newItem.EndTime,
-			Permission: newItem.Permission,
-		}).FirstOrCreate(&existingItem).Error; err != nil {
-			utils.AppendError(mu, errors, fmt.Sprintf("Failed to insert schedule item: %v", err))
+		// Используем транзакцию для атомарной вставки элемента расписания и его ассоциаций
+		if err := a.DB.Transaction(func(tx *gorm.DB) error {
+			// Создаем элемент расписания
+			if err := tx.Create(&newItem).Error; err != nil {
+				return err
+			}
+
+			// Добавляем дисциплину
+			if err := tx.Model(&newItem).Association("Disciplines").Append(&dbDiscipline); err != nil {
+				return err
+			}
+
+			// Добавляем группы
+			for _, group := range item.Groups {
+				var dbGroup models.Group
+				if err := tx.Where("uuid = ?", group.UUID).FirstOrCreate(&dbGroup, models.Group{
+					Name:          group.Name,
+					UUID:          group.UUID,
+					DepartmentUID: group.DepartmentUID,
+				}).Error; err != nil {
+					return err
+				}
+				if err := tx.Model(&newItem).Association("Groups").Append(&dbGroup); err != nil {
+					return err
+				}
+			}
+
+			// Добавляем преподавателей
+			for _, teacher := range item.Teachers {
+				var dbTeacher models.Teacher
+				if err := tx.Where("uuid = ?", teacher.UUID).FirstOrCreate(&dbTeacher, models.Teacher{
+					UUID:       teacher.UUID,
+					LastName:   teacher.LastName,
+					FirstName:  teacher.FirstName,
+					MiddleName: teacher.MiddleName,
+				}).Error; err != nil {
+					return err
+				}
+				if err := tx.Model(&newItem).Association("Teachers").Append(&dbTeacher); err != nil {
+					return err
+				}
+			}
+
+			// Добавляем аудитории
+			for _, audience := range item.Audiences {
+				var dbAudience models.Audience
+				if err := tx.Where("uuid = ?", audience.UUID).FirstOrCreate(&dbAudience, models.Audience{
+					Name:          audience.Name,
+					UUID:          audience.UUID,
+					Building:      audience.Building,
+					DepartmentUID: audience.DepartmentUID,
+				}).Error; err != nil {
+					return err
+				}
+				if err := tx.Model(&newItem).Association("Audiences").Append(&dbAudience); err != nil {
+					return err
+				}
+			}
+
+			return nil
+		}); err != nil {
+			utils.AppendError(mu, errors, fmt.Sprintf("Failed to insert schedule item and associations: %v", err))
 			continue
 		}
 		insertedScheduleItems++
-
-		// Связываем дисциплину с элементом расписания
-		if err := a.DB.Model(&existingItem).Association("Disciplines").Append(&dbDiscipline); err != nil {
-			utils.AppendError(mu, errors, fmt.Sprintf("Failed to associate discipline with schedule item: %v", err))
-		}
-
-		// Ассоциация с группами
-		for _, group := range item.Groups {
-			var dbGroup models.Group
-			if err := a.DB.Where("uuid = ?", group.UUID).FirstOrCreate(&dbGroup, models.Group{
-				Name:          group.Name,
-				UUID:          group.UUID,
-				DepartmentUID: group.DepartmentUID,
-			}).Error; err != nil {
-				utils.AppendError(mu, errors, fmt.Sprintf("Failed to insert group %s: %v", group.UUID, err))
-				continue
-			}
-			if err := a.DB.Model(&existingItem).Association("Groups").Append(&dbGroup); err != nil {
-				utils.AppendError(mu, errors, fmt.Sprintf("Failed to associate group %s with schedule item: %v", group.UUID, err))
-			}
-		}
-
-		// Ассоциация с преподавателями
-		for _, teacher := range item.Teachers {
-			var dbTeacher models.Teacher
-			if err := a.DB.Where("uuid = ?", teacher.UUID).FirstOrCreate(&dbTeacher, models.Teacher{
-				UUID:       teacher.UUID,
-				LastName:   teacher.LastName,
-				FirstName:  teacher.FirstName,
-				MiddleName: teacher.MiddleName,
-			}).Error; err != nil {
-				utils.AppendError(mu, errors, fmt.Sprintf("Failed to insert teacher %s: %v", teacher.UUID, err))
-				continue
-			}
-			if err := a.DB.Model(&existingItem).Association("Teachers").Append(&dbTeacher); err != nil {
-				utils.AppendError(mu, errors, fmt.Sprintf("Failed to associate teacher %s with schedule item: %v", teacher.UUID, err))
-			}
-		}
-
-		// Ассоциация с аудиториями
-		for _, audience := range item.Audiences {
-			var dbAudience models.Audience
-			if err := a.DB.Where("uuid = ?", audience.UUID).FirstOrCreate(&dbAudience, models.Audience{
-				Name:          audience.Name,
-				UUID:          audience.UUID,
-				Building:      audience.Building,
-				DepartmentUID: audience.DepartmentUID,
-			}).Error; err != nil {
-				utils.AppendError(mu, errors, fmt.Sprintf("Failed to insert audience %s: %v", audience.UUID, err))
-				continue
-			}
-			if err := a.DB.Model(&existingItem).Association("Audiences").Append(&dbAudience); err != nil {
-				utils.AppendError(mu, errors, fmt.Sprintf("Failed to associate audience %s with schedule item: %v", audience.UUID, err))
-			}
-		}
 	}
 
 	for _, item := range examItems {
