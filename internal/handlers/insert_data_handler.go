@@ -28,7 +28,9 @@ func (a *App) InsertDataHandler(c echo.Context) error {
 	structureURL := "https://lks.bmstu.ru/lks-back/api/v1/structure"
 	var structure models.Structure
 
-	if err := utils.FetchJSON(structureURL, &structure); err != nil {
+	ctx := c.Request().Context()
+
+	if err := utils.FetchJSON(ctx, structureURL, &structure); err != nil {
 		log.Printf("Failed to fetch structure: %v", err)
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to fetch structure"})
 	}
@@ -63,43 +65,56 @@ func (a *App) InsertDataHandler(c echo.Context) error {
 	sem := make(chan struct{}, 8)                                   // Ограничение в 8 горутин
 	limiter := rate.NewLimiter(rate.Every(75*time.Millisecond), 16) // 16 запросов в 75 миллисекунд
 
+groupLoop:
 	for _, uuid := range groupUUIDs {
-		sem <- struct{}{}
-		wg.Add(1)
-		go func(uuid string) {
-			defer wg.Done()
-			defer func() { <-sem }()
+		select {
+		case <-ctx.Done():
+			// При отмене запроса закрываем все WebSocket соединения
+			a.Hub.CloseAll()
+			break groupLoop // если отменён - выходим из цикла
+		case sem <- struct{}{}:
+			wg.Add(1)
+			go func(uuid string) {
+				defer wg.Done()
+				defer func() { <-sem }()
 
-			// Ожидание разрешения от rate limiter
-			if err := limiter.Wait(context.Background()); err != nil {
-				log.Printf("Rate limiter error for group %s: %v", uuid, err)
-				utils.AppendError(&mu, &errors, fmt.Sprintf("Rate limiter error for group %s: %v", uuid, err))
-				return
-			}
+				// отмена по контексту
+				if ctx.Err() != nil {
+					return
+				}
 
-			if err := a.processGroupData(uuid, &mu, &errors); err != nil {
-				log.Printf("Failed to process data for group %s: %v", uuid, err)
-				utils.AppendError(&mu, &errors, fmt.Sprintf("Group %s: %v", uuid, err))
-			}
+				// Ожидание разрешения от rate limiter
+				if err := limiter.Wait(ctx); err != nil {
+					log.Printf("Rate limiter error for group %s: %v", uuid, err)
+					utils.AppendError(&mu, &errors, fmt.Sprintf("Rate limiter error for group %s: %v", uuid, err))
+					return
+				}
 
-			mu.Lock()
-			completed++
-			elapsed := time.Since(startTime)
-			itemsPerSecond := float64(completed) / elapsed.Seconds()
-			remainingItems := totalItems - completed
-			eta := time.Duration(float64(remainingItems)/itemsPerSecond) * time.Second
+				// Передаём ctx дальше
+				if err := a.processGroupData(ctx, uuid, &mu, &errors); err != nil {
+					log.Printf("Failed to process data for group %s: %v", uuid, err)
+					utils.AppendError(&mu, &errors, fmt.Sprintf("Group %s: %v", uuid, err))
+				}
 
-			// Отправляем состояние прогресса
-			a.Hub.BroadcastProgress(ProgressUpdate{
-				Type:           "insertProgress",
-				CurrentItem:    completed,
-				TotalItems:     totalItems,
-				CompletedItems: completed,
-				Percentage:     float64(completed) / float64(totalItems) * 100,
-				ETA:            eta.Round(time.Second).String(),
-			})
-			mu.Unlock()
-		}(uuid)
+				mu.Lock()
+				completed++
+				elapsed := time.Since(startTime)
+				itemsPerSecond := float64(completed) / elapsed.Seconds()
+				remainingItems := totalItems - completed
+				eta := time.Duration(float64(remainingItems)/itemsPerSecond) * time.Second
+
+				// Отправляем состояние прогресса
+				a.Hub.BroadcastProgress(ProgressUpdate{
+					Type:           "insertProgress",
+					CurrentItem:    completed,
+					TotalItems:     totalItems,
+					CompletedItems: completed,
+					Percentage:     float64(completed) / float64(totalItems) * 100,
+					ETA:            eta.Round(time.Second).String(),
+				})
+				mu.Unlock()
+			}(uuid)
+		}
 	}
 
 	wg.Wait()
@@ -113,6 +128,14 @@ func (a *App) InsertDataHandler(c echo.Context) error {
 		Percentage:     100,
 		ETA:            "0s",
 	})
+
+	// Если контекст отменён, закрываем WebSocket соединения и возвращаем ошибку
+	if ctx.Err() != nil {
+		a.Hub.CloseAll()
+		return c.JSON(http.StatusRequestTimeout, map[string]string{
+			"error": "Operation canceled by client",
+		})
+	}
 
 	if len(errors) > 0 {
 		if completed == 0 {
@@ -132,21 +155,29 @@ func (a *App) InsertDataHandler(c echo.Context) error {
 	return c.JSON(http.StatusOK, map[string]string{"message": "Data inserted successfully"})
 }
 
-func (a *App) processGroupData(uuid string, mu *sync.Mutex, errors *[]string) error {
+func (a *App) processGroupData(ctx context.Context, uuid string, mu *sync.Mutex, errors *[]string) error {
 	var schedule models.Schedule
 	var exams models.ExamResponse
 
 	scheduleURL := fmt.Sprintf("https://lks.bmstu.ru/lks-back/api/v1/schedules/groups/%s/public", uuid)
 	examURL := fmt.Sprintf("https://lks.bmstu.ru/lks-back/api/v1/schedules/exams/%s/public", uuid)
 
-	if err := utils.FetchJSON(scheduleURL, &schedule); err != nil {
+	if err := utils.FetchJSON(ctx, scheduleURL, &schedule); err != nil {
 		utils.AppendError(mu, errors, fmt.Sprintf("Failed to fetch schedule for group %s", uuid))
 		return err
 	}
 
-	if err := utils.FetchJSON(examURL, &exams); err != nil {
+	if ctx.Err() != nil {
+		return ctx.Err()
+	}
+
+	if err := utils.FetchJSON(ctx, examURL, &exams); err != nil {
 		utils.AppendError(mu, errors, fmt.Sprintf("Failed to fetch exams for group %s", uuid))
 		return err
+	}
+
+	if ctx.Err() != nil {
+		return ctx.Err()
 	}
 
 	// Получаем существующие записи расписания для сравнения
@@ -182,7 +213,16 @@ func (a *App) processGroupData(uuid string, mu *sync.Mutex, errors *[]string) er
 	if !compareSchedules(existingSchedules, schedule.Data.Schedule) {
 		changes = true
 
+		// Проверка отмены перед транзакцией
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+
 		if err := a.DB.Transaction(func(tx *gorm.DB) error {
+			if ctx.Err() != nil {
+				return ctx.Err()
+			}
+
 			var existingItems []models.ScheduleItem
 			if err := tx.
 				Preload("Groups", "groups.uuid = ?", uuid).
@@ -220,7 +260,7 @@ func (a *App) processGroupData(uuid string, mu *sync.Mutex, errors *[]string) er
 		}
 
 		// Вставляем новые данные
-		if err := a.insertToDatabase(schedule.Data.Schedule, exams.Data, mu, errors); err != nil {
+		if err := a.insertToDatabase(ctx, schedule.Data.Schedule, exams.Data, mu, errors); err != nil {
 			return err
 		}
 	} else {
@@ -228,7 +268,7 @@ func (a *App) processGroupData(uuid string, mu *sync.Mutex, errors *[]string) er
 		if !compareExams(existingExams, exams.Data) {
 			changes = true
 			// Обновляем только экзамены
-			if err := a.insertExamsToDatabase(exams.Data, mu, errors); err != nil {
+			if err := a.insertExamsToDatabase(ctx, exams.Data, mu, errors); err != nil {
 				return err
 			}
 		}
@@ -368,8 +408,12 @@ func compareExams(existing []models.Exam, new []models.Exam) bool {
 	return true
 }
 
-func (a *App) insertExamsToDatabase(examItems []models.Exam, mu *sync.Mutex, errors *[]string) error {
+func (a *App) insertExamsToDatabase(ctx context.Context, examItems []models.Exam, mu *sync.Mutex, errors *[]string) error {
 	for _, item := range examItems {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+
 		// Сохраняем дисциплину
 		var dbDiscipline models.Discipline
 		if err := a.DB.Where("full_name = ?", item.DisciplineRaw).
@@ -412,10 +456,14 @@ func (a *App) insertExamsToDatabase(examItems []models.Exam, mu *sync.Mutex, err
 	return nil
 }
 
-func (a *App) insertToDatabase(scheduleItems []models.ScheduleItem, examItems []models.Exam, mu *sync.Mutex, errors *[]string) error {
+func (a *App) insertToDatabase(ctx context.Context, scheduleItems []models.ScheduleItem, examItems []models.Exam, mu *sync.Mutex, errors *[]string) error {
 	var insertedScheduleItems, insertedExamItems int
 
 	for _, item := range scheduleItems {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+
 		// Сохраняем дисциплину
 		var dbDiscipline models.Discipline
 		if err := a.DB.Where("abbr = ? AND act_type = ? AND full_name = ? AND short_name = ?",
@@ -443,6 +491,9 @@ func (a *App) insertToDatabase(scheduleItems []models.ScheduleItem, examItems []
 
 		// Используем транзакцию для атомарной вставки элемента расписания и его ассоциаций
 		if err := a.DB.Transaction(func(tx *gorm.DB) error {
+			if ctx.Err() != nil {
+				return ctx.Err()
+			}
 			// Создаем элемент расписания
 			if err := tx.Create(&newItem).Error; err != nil {
 				return err
@@ -509,6 +560,10 @@ func (a *App) insertToDatabase(scheduleItems []models.ScheduleItem, examItems []
 	}
 
 	for _, item := range examItems {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+
 		// Сохраняем дисциплину
 		var dbDiscipline models.Discipline
 		if err := a.DB.Where("full_name = ?", item.DisciplineRaw).

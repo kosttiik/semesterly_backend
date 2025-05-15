@@ -120,8 +120,10 @@ func (a *App) RegisterRoutes(e *echo.Echo) {
 	}))
 
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
-		AllowOrigins: []string{"*"},
-		AllowMethods: []string{echo.GET, echo.POST, echo.PUT, echo.DELETE},
+		AllowOrigins:     []string{"http://localhost:5173"},
+		AllowMethods:     []string{echo.GET, echo.POST, echo.PUT, echo.DELETE, echo.OPTIONS},
+		AllowHeaders:     []string{"Content-Type", "Authorization"},
+		AllowCredentials: true,
 	}))
 
 	h := &handlers.App{
@@ -158,6 +160,9 @@ func (a *App) RegisterRoutes(e *echo.Echo) {
 
 	// WebSocket
 	e.GET("/ws", h.HandleWebSocket)
+
+	// Логин в LKS BMSTU
+	e.POST("/api/v1/login-external", h.LoginExternalHandler)
 }
 
 // customLogger для форматирования логов с использованием LOG_TIME_FORMAT

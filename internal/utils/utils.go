@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -19,11 +20,17 @@ func AppendError(mu *sync.Mutex, errors *[]string, errMsg string) {
 }
 
 // FetchJSON выполняет запрос к URL и декодирует JSON в целевую структуру
-func FetchJSON(url string, target any) error {
-	resp, err := http.Get(url)
+func FetchJSON(ctx context.Context, url string, target any) error {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return fmt.Errorf("error creating request for URL %s: %w", url, err)
+	}
+
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return fmt.Errorf("error fetching URL %s: %w", url, err)
 	}
+
 	defer resp.Body.Close()
 
 	// Проверка Content-Type

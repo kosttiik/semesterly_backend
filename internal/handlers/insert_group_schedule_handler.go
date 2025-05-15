@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net/http"
@@ -26,11 +27,12 @@ func (a *App) InsertGroupScheduleHandler(c echo.Context) error {
 	var wg sync.WaitGroup
 	var mu sync.Mutex
 	errors := make([]string, 0)
+	ctx := c.Request().Context()
 
 	wg.Add(1)
 	go func(uuid string) {
 		defer wg.Done()
-		if err := a.processGroupScheduleData(uuid, &mu, &errors); err != nil {
+		if err := a.processGroupScheduleData(ctx, uuid, &mu, &errors); err != nil {
 			log.Printf("Failed to process data for group %s: %v", uuid, err)
 		}
 	}(uuid)
@@ -45,20 +47,20 @@ func (a *App) InsertGroupScheduleHandler(c echo.Context) error {
 }
 
 // processGroupScheduleData обрабатывает данные расписания и экзаменов для группы
-func (a *App) processGroupScheduleData(uuid string, mu *sync.Mutex, errors *[]string) error {
+func (a *App) processGroupScheduleData(ctx context.Context, uuid string, mu *sync.Mutex, errors *[]string) error {
 	var schedule models.Schedule
 	var exams models.ExamResponse
 
 	scheduleURL := fmt.Sprintf("https://lks.bmstu.ru/lks-back/api/v1/schedules/groups/%s/public", uuid)
 	examURL := fmt.Sprintf("https://lks.bmstu.ru/lks-back/api/v1/schedules/exams/%s/public", uuid)
 
-	if err := utils.FetchJSON(scheduleURL, &schedule); err != nil {
+	if err := utils.FetchJSON(ctx, scheduleURL, &schedule); err != nil {
 		utils.AppendError(mu, errors, fmt.Sprintf("Failed to fetch schedule for group %s", uuid))
 		return err
 	}
 	log.Printf("Fetched schedule for group %s", uuid)
 
-	if err := utils.FetchJSON(examURL, &exams); err != nil {
+	if err := utils.FetchJSON(ctx, examURL, &exams); err != nil {
 		utils.AppendError(mu, errors, fmt.Sprintf("Failed to fetch exams for group %s", uuid))
 		return err
 	}

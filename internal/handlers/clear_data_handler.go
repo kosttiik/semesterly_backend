@@ -5,6 +5,8 @@ import (
 	"log"
 	"net/http"
 
+	"slices"
+
 	"github.com/kosttiik/semesterly_backend/internal/models"
 	"github.com/labstack/echo/v4"
 	"gorm.io/gorm"
@@ -20,7 +22,6 @@ import (
 // @Failure 500 {object} map[string]string "error: Failed to clear database"
 // @Router /clear-data [post]
 func (a *App) ClearDataHandler(c echo.Context) error {
-	// Список всех ассоциативных таблиц и основных таблиц
 	assocTables := []string{
 		"schedule_item_audiences",
 		"schedule_item_disciplines",
@@ -40,65 +41,38 @@ func (a *App) ClearDataHandler(c echo.Context) error {
 		{"disciplines", &models.Discipline{}},
 	}
 
-	// Подсчитываем общее количество строк для удаления
-	totalRows := int64(0)
-	tableRowCounts := make(map[string]int64)
-
-	// Считаем строки в ассоциативных таблицах
-	for _, table := range assocTables {
-		var count int64
-		a.DB.Table(table).Count(&count)
-		tableRowCounts[table] = count
-		totalRows += count
-	}
-	// Считаем строки в основных таблицах
+	allTables := slices.Clone(assocTables)
 	for _, t := range mainTables {
-		var count int64
-		a.DB.Model(t.model).Count(&count)
-		tableRowCounts[t.name] = count
-		totalRows += count
+		allTables = append(allTables, t.name)
 	}
 
-	deletedRows := int64(0)
-	// Функция для отправки прогресса через WebSocket
+	totalTables := len(allTables)
+	currentTable := 0
+
 	progress := func(message string) {
 		percentage := 0.0
-		if totalRows > 0 {
-			percentage = float64(deletedRows) / float64(totalRows) * 100
+		if totalTables > 0 {
+			percentage = float64(currentTable) / float64(totalTables) * 100
 		}
 		a.Hub.BroadcastProgress(ProgressUpdate{
 			Type:           "clearProgress",
-			CurrentItem:    int(deletedRows),
-			TotalItems:     int(totalRows),
-			CompletedItems: int(deletedRows),
+			CurrentItem:    currentTable,
+			TotalItems:     totalTables,
+			CompletedItems: currentTable,
 			Percentage:     percentage,
 			Message:        message,
 		})
 	}
 
-	// Отправляем начальное состояние прогресса
 	progress("Начинается очистка базы данных...")
 
 	err := a.DB.Transaction(func(tx *gorm.DB) error {
-		// Удаляем ассоциативные таблицы с прогрессом
-		for _, table := range assocTables {
-			if tableRowCounts[table] > 0 {
-				if err := tx.Table(table).Where("1 = 1").Unscoped().Delete(&struct{}{}).Error; err != nil {
-					return err
-				}
-				deletedRows += tableRowCounts[table]
-				progress(fmt.Sprintf("Очищена ассоциативная таблица: %s...", table))
+		for _, table := range allTables {
+			if err := tx.Exec(fmt.Sprintf("TRUNCATE TABLE %s CASCADE", table)).Error; err != nil {
+				return err
 			}
-		}
-		// Удаляем основные таблицы с прогрессом
-		for _, t := range mainTables {
-			if tableRowCounts[t.name] > 0 {
-				if err := tx.Unscoped().Where("1 = 1").Delete(t.model).Error; err != nil {
-					return err
-				}
-				deletedRows += tableRowCounts[t.name]
-				progress(fmt.Sprintf("Очищена основная таблица: %s...", t.name))
-			}
+			currentTable++
+			progress(fmt.Sprintf("Очищена таблица: %s...", table))
 		}
 		return nil
 	})
@@ -111,15 +85,17 @@ func (a *App) ClearDataHandler(c echo.Context) error {
 		})
 	}
 
-	// Финальное состояние прогресса
 	a.Hub.BroadcastProgress(ProgressUpdate{
 		Type:           "clearProgress",
-		CurrentItem:    int(totalRows),
-		TotalItems:     int(totalRows),
-		CompletedItems: int(totalRows),
+		CurrentItem:    totalTables,
+		TotalItems:     totalTables,
+		CompletedItems: totalTables,
 		Percentage:     100,
 		Message:        "База данных успешно очищена",
 	})
+
+	// Закрываем все WebSocket соединения после финального сообщения
+	a.Hub.CloseAll()
 
 	return c.JSON(http.StatusOK, map[string]string{
 		"message": "База данных успешно очищена",

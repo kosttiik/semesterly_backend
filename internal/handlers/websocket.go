@@ -101,6 +101,27 @@ func (h *WebSocketHub) BroadcastProgress(update ProgressUpdate) {
 	}
 }
 
+func (h *WebSocketHub) CloseAll() {
+	h.mu.Lock()
+	clients := make([]*Client, 0, len(h.clients))
+	for client := range h.clients {
+		clients = append(clients, client)
+	}
+	h.clients = make(map[*Client]bool)
+	h.mu.Unlock()
+
+	var wg sync.WaitGroup
+	for _, client := range clients {
+		wg.Add(1)
+		go func(c *Client) {
+			defer wg.Done()
+			c.conn.Close()
+			close(c.send)
+		}(client)
+	}
+	wg.Wait()
+}
+
 func (a *App) HandleWebSocket(c echo.Context) error {
 	conn, err := upgrader.Upgrade(c.Response(), c.Request(), nil)
 	if err != nil {
