@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/base64"
+	"encoding/json"
 	"io"
 	"log"
 	"net/http"
@@ -22,7 +23,23 @@ type LoginExternalRequest struct {
 
 // Ответ, отправляемый на фронтенд
 type LoginExternalResponse struct {
-	Cookies map[string]string `json:"cookies"`
+	Cookies    map[string]string `json:"cookies"`
+	LastName   string            `json:"lastName"`
+	FirstName  string            `json:"firstName"`
+	MiddleName string            `json:"middleName"`
+	Photo      string            `json:"photo"`
+}
+
+// Структуры для ответа внешнего API
+type externalProfileResponse struct {
+	LastName   string `json:"lastName"`
+	FirstName  string `json:"firstName"`
+	MiddleName string `json:"middleName"`
+	// Остальные поля не нужны (возможно, пока что...)
+}
+
+type externalPhotoResponse struct {
+	Photo string `json:"photo"`
 }
 
 // LoginExternalHandler логинит пользователя во внешний портал и возвращает сессионные куки
@@ -247,7 +264,67 @@ func (a *App) LoginExternalHandler(c echo.Context) error {
 		return c.JSON(http.StatusBadGateway, map[string]string{"error": "Missing portal info cookie"})
 	}
 
-	return c.JSON(http.StatusOK, LoginExternalResponse{Cookies: cookies})
+	// Получаем профиль и фото пользователя
+	profileURL := "https://lks.bmstu.ru/lks-back/api/v1/student"
+	photoURL := "https://lks.bmstu.ru/lks-back/api/v1/student/photo"
+
+	// Собираем куки для запроса к API
+	apiCookies := []*http.Cookie{
+		{Name: "width", Value: "2048", Path: "/", Domain: "lks.bmstu.ru"},
+		{Name: "__portal3_login", Value: cookies["__portal3_login"], Path: "/", Domain: "lks.bmstu.ru"},
+		{Name: "__portal3_info", Value: cookies["__portal3_info"], Path: "/", Domain: "lks.bmstu.ru"},
+	}
+
+	// Вспомогательная функция для запроса к API
+	doAPIRequest := func(url string) ([]byte, error) {
+		req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+		if err != nil {
+			return nil, err
+		}
+		req.Header.Set("User-Agent", commonHeaders["User-Agent"])
+		req.Header.Set("Accept", "application/json")
+		for _, ck := range apiCookies {
+			req.AddCookie(ck)
+		}
+		resp, err := client.Do(req)
+		if err != nil {
+			return nil, err
+		}
+		defer resp.Body.Close()
+		return io.ReadAll(resp.Body)
+	}
+
+	// Получаем профиль
+	var profile externalProfileResponse
+	profileBody, err := doAPIRequest(profileURL)
+	if err != nil {
+		log.Printf("Failed to fetch profile: %v", err)
+		return c.JSON(http.StatusBadGateway, map[string]string{"error": "Failed to fetch profile"})
+	}
+	if err := json.Unmarshal(profileBody, &profile); err != nil {
+		log.Printf("Failed to parse profile: %v", err)
+		return c.JSON(http.StatusBadGateway, map[string]string{"error": "Failed to parse profile"})
+	}
+
+	// Получаем фото
+	var photo externalPhotoResponse
+	photoBody, err := doAPIRequest(photoURL)
+	if err != nil {
+		log.Printf("Failed to fetch photo: %v", err)
+		return c.JSON(http.StatusBadGateway, map[string]string{"error": "Failed to fetch photo"})
+	}
+	if err := json.Unmarshal(photoBody, &photo); err != nil {
+		log.Printf("Failed to parse photo: %v", err)
+		return c.JSON(http.StatusBadGateway, map[string]string{"error": "Failed to parse photo"})
+	}
+
+	return c.JSON(http.StatusOK, LoginExternalResponse{
+		Cookies:    cookies,
+		LastName:   profile.LastName,
+		FirstName:  profile.FirstName,
+		MiddleName: profile.MiddleName,
+		Photo:      photo.Photo,
+	})
 }
 
 // extractExecution вытаскивает execution из HTML страницы логина
