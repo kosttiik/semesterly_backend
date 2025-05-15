@@ -121,7 +121,7 @@ func (a *App) InsertDataHandler(c echo.Context) error {
 				"details": fmt.Sprintf("%v", errors),
 			})
 		}
-		return c.JSON(http.StatusOK, map[string]interface{}{
+		return c.JSON(http.StatusOK, map[string]any{
 			"message":   "Partially completed with errors",
 			"completed": completed,
 			"total":     totalItems,
