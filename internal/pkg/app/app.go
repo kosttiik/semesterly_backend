@@ -120,9 +120,13 @@ func (a *App) RegisterRoutes(e *echo.Echo) {
 	}))
 
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
-		AllowOrigins:     []string{"http://localhost:5173"},
-		AllowMethods:     []string{echo.GET, echo.POST, echo.PUT, echo.DELETE, echo.OPTIONS},
-		AllowHeaders:     []string{"Content-Type", "Authorization"},
+		AllowOrigins: []string{"http://localhost:5173"},
+		AllowMethods: []string{echo.GET, echo.POST, echo.PUT, echo.DELETE, echo.OPTIONS},
+		AllowHeaders: []string{
+			"Content-Type", "Authorization", echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept,
+			"x-cookie-jsessionid", "x-cookie-__portal3_login", "x-cookie-__portal3_info",
+			"x-cookie-width", "x-cookie-tgc", "x-cookie-_csrf",
+		},
 		AllowCredentials: true,
 	}))
 
