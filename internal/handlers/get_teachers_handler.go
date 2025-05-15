@@ -5,6 +5,7 @@ import (
 
 	"github.com/kosttiik/semesterly_backend/internal/models"
 	"github.com/labstack/echo/v4"
+	"gorm.io/gorm"
 )
 
 // GetTeachersHandler отправляет JSON со списком всех преподавателей
@@ -19,7 +20,13 @@ import (
 func (a *App) GetTeachersHandler(c echo.Context) error {
 	var teachers []models.Teacher
 
-	if err := a.DB.Order("last_name").Order("first_name").Order("middle_name").Find(&teachers).Error; err != nil {
+	err := a.DB.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Order("last_name").Order("first_name").Order("middle_name").Find(&teachers).Error; err != nil {
+			return err
+		}
+		return nil
+	})
+	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to fetch teachers"})
 	}
 

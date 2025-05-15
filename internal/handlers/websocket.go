@@ -16,6 +16,7 @@ type ProgressUpdate struct {
 	CurrentItem    int     `json:"currentItem"`
 	TotalItems     int     `json:"totalItems"`
 	CompletedItems int     `json:"completedItems"`
+	Message        string  `json:"message"`
 	Percentage     float64 `json:"percentage"`
 	ETA            string  `json:"eta"`
 }

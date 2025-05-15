@@ -139,6 +139,9 @@ func (a *App) RegisterRoutes(e *echo.Echo) {
 	e.POST("/api/v1/insert-data", h.InsertDataHandler)
 	e.POST("/api/v1/insert-group-schedule/:uuid", h.InsertGroupScheduleHandler)
 
+	// Удаление всех записей расписания
+	e.POST("/api/v1/clear-data", h.ClearDataHandler)
+
 	// Получение всех записей расписания
 	e.GET("/api/v1/get-data", h.GetDataHandler)
 

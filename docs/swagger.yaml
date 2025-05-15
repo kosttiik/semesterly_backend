@@ -97,6 +97,29 @@ info:
   title: Автоматизированная система по ведению расписания учебных занятий
   version: "1.0"
 paths:
+  /clear-data:
+    post:
+      consumes:
+      - application/json
+      description: Удаляет все данные из всех таблиц базы данных
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 'message: Database cleared successfully'
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: 'error: Failed to clear database'
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Очистка базы данных
+      tags:
+      - ClearData
   /get-data:
     get:
       consumes:

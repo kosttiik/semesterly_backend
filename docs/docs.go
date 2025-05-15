@@ -15,6 +15,41 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
+        "/clear-data": {
+            "post": {
+                "description": "Удаляет все данные из всех таблиц базы данных",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "ClearData"
+                ],
+                "summary": "Очистка базы данных",
+                "responses": {
+                    "200": {
+                        "description": "message: Database cleared successfully",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "error: Failed to clear database",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/get-data": {
             "get": {
                 "description": "Возвращает данные расписания из базы данных в формате JSON",
