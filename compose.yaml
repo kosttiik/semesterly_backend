@@ -38,6 +38,18 @@ services:
     networks:
       - app-network
 
+  frontend:
+    build:
+      context: ../semesterly_frontend
+      dockerfile: Dockerfile
+    ports:
+      - "5173:5173"
+    depends_on:
+      app:
+        condition: service_started
+    networks:
+      - app-network
+
 volumes:
   postgres_data:
 
