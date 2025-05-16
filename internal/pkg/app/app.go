@@ -1,13 +1,19 @@
+//go:build windows
+// +build windows
+
 package app
 
 import (
+	"embed"
 	"errors"
 	"fmt"
+	"io/fs"
 	"log"
 	"os"
 	"strconv"
 	"time"
 
+	embeddedpostgres "github.com/fergusstrange/embedded-postgres"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"gorm.io/driver/postgres"
@@ -31,28 +37,81 @@ var (
 
 // Инициализация приложения с подключением к БД
 func New() (*App, error) {
+	// Значения по умолчанию для production
+	const (
+		defaultTimezone        = "Europe/Moscow"
+		defaultLogTimeFormat   = "15:04:05 02.01.2006"
+		defaultPort            = "8080"
+		defaultDBName          = "postgres"
+		defaultDBPort          = "5435"
+		defaultDBUser          = "postgres"
+		defaultDBPassword      = "postgres"
+		defaultDBHost          = "localhost"
+		defaultDBMaxRetries    = "10"
+		defaultDBRetryInterval = "1"
+	)
+
+	// Устанавливаем переменные окружения, если не заданы
+	if os.Getenv("TIMEZONE") == "" {
+		os.Setenv("TIMEZONE", defaultTimezone)
+	}
+	if os.Getenv("LOG_TIME_FORMAT") == "" {
+		os.Setenv("LOG_TIME_FORMAT", defaultLogTimeFormat)
+	}
+	if os.Getenv("PORT") == "" {
+		os.Setenv("PORT", defaultPort)
+	}
+	if os.Getenv("DB_NAME") == "" {
+		os.Setenv("DB_NAME", defaultDBName)
+	}
+	if os.Getenv("DB_PORT") == "" {
+		os.Setenv("DB_PORT", defaultDBPort)
+	}
+	if os.Getenv("DB_USER") == "" {
+		os.Setenv("DB_USER", defaultDBUser)
+	}
+	if os.Getenv("DB_PASSWORD") == "" {
+		os.Setenv("DB_PASSWORD", defaultDBPassword)
+	}
+	if os.Getenv("DB_HOST") == "" {
+		os.Setenv("DB_HOST", defaultDBHost)
+	}
+	if os.Getenv("DB_MAX_RETRIES") == "" {
+		os.Setenv("DB_MAX_RETRIES", defaultDBMaxRetries)
+	}
+	if os.Getenv("DB_RETRY_INTERVAL") == "" {
+		os.Setenv("DB_RETRY_INTERVAL", defaultDBRetryInterval)
+	}
+
 	// Настраиваем формат логов глобально
 	timeFormat := os.Getenv("LOG_TIME_FORMAT")
 	if timeFormat == "" {
-		timeFormat = "15:04:05 02.01.2006"
+		timeFormat = defaultLogTimeFormat
 	}
-	log.SetFlags(0) // Убираем стандартный префикс (дата/время)
+	log.SetFlags(0)
 	log.SetOutput(&customLogger{format: timeFormat})
 
-	// Получаем DATABASE_URL из .env
-	databaseURL := os.Getenv("DATABASE_URL")
-	if databaseURL == "" {
-		return nil, ErrMissingDatabaseConfig
+	// Всегда запускаем embedded Postgre для production на 5435
+	embeddedPg := embeddedpostgres.NewDatabase(embeddedpostgres.DefaultConfig().
+		Username(defaultDBUser).
+		Password(defaultDBPassword).
+		Database(defaultDBName).
+		Port(5435),
+	)
+	if startErr := embeddedPg.Start(); startErr != nil {
+		return nil, fmt.Errorf("failed to start embedded postgre: %w", startErr)
 	}
+	log.Println("Embedded Postgre started on port 5435")
 
-	// Получаем настройки повторных попыток подключения
+	// Формируем строку подключения к embedded Postgre
+	databaseURL := fmt.Sprintf("postgres://%s:%s@localhost:%s/%s?sslmode=disable",
+		defaultDBUser, defaultDBPassword, defaultDBPort, defaultDBName,
+	)
+
 	maxRetriesStr := os.Getenv("DB_MAX_RETRIES")
 	retryIntervalStr := os.Getenv("DB_RETRY_INTERVAL")
-
-	// Значения по умолчанию
 	maxRetries := 10
 	retryInterval := 1 * time.Second
-
 	if maxRetriesStr != "" {
 		var err error
 		maxRetries, err = strconv.Atoi(maxRetriesStr)
@@ -60,7 +119,6 @@ func New() (*App, error) {
 			return nil, fmt.Errorf("%w: DB_MAX_RETRIES must be a non-negative integer", ErrInvalidRetryConfig)
 		}
 	}
-
 	if retryIntervalStr != "" {
 		var err error
 		retryIntervalSeconds, err := strconv.Atoi(retryIntervalStr)
@@ -73,22 +131,21 @@ func New() (*App, error) {
 	var db *gorm.DB
 	var err error
 
-	// Ожидание подключения к БД
+	// Ожидание подключения к embedded Postgres
 	for i := range maxRetries {
 		db, err = gorm.Open(postgres.Open(databaseURL), &gorm.Config{})
 		if err == nil {
 			break
 		}
 		waitTime := retryInterval * time.Duration(i+1)
-		log.Printf("Waiting for database... retrying in %v", waitTime)
+		log.Printf("Waiting for embedded database... retrying in %v", waitTime)
 		time.Sleep(waitTime)
 	}
-
 	if err != nil {
-		return nil, fmt.Errorf("failed to connect to database after %d retries: %w", maxRetries, err)
+		return nil, fmt.Errorf("failed to connect to embedded database after %d retries: %w", maxRetries, err)
 	}
 
-	log.Println("Connected to the database successfully!")
+	log.Println("Connected to the embedded database successfully!")
 
 	// Миграция БД
 	err = db.AutoMigrate(&models.ScheduleItem{}, &models.Exam{})
@@ -104,6 +161,9 @@ func New() (*App, error) {
 		Hub: hub,
 	}, nil
 }
+
+//go:embed build/dist/*
+var embeddedFrontend embed.FS
 
 func (a *App) RegisterRoutes(e *echo.Echo) {
 	// Логирование запросов в терминал
@@ -167,6 +227,33 @@ func (a *App) RegisterRoutes(e *echo.Echo) {
 
 	// Логин в LKS BMSTU
 	e.POST("/api/v1/login-external", h.LoginExternalHandler)
+
+	subFS, err := fs.Sub(embeddedFrontend, "build/dist")
+	if err != nil {
+		log.Fatalf("failed to prepare embedded frontend: %v", err)
+	}
+
+	// Корректная раздача статики с правильными Content-Type
+	e.StaticFS("/assets", echo.MustSubFS(subFS, "assets"))
+	e.FileFS("/favicon.ico", "favicon.ico", subFS)
+	e.FileFS("/manifest.json", "manifest.json", subFS)
+
+	e.GET("/", func(c echo.Context) error {
+		f, err := subFS.Open("index.html")
+		if err != nil {
+			return echo.ErrNotFound
+		}
+		defer f.Close()
+		return c.Stream(200, "text/html", f)
+	})
+	e.GET("/*", func(c echo.Context) error {
+		f, err := subFS.Open("index.html")
+		if err != nil {
+			return echo.ErrNotFound
+		}
+		defer f.Close()
+		return c.Stream(200, "text/html", f)
+	})
 }
 
 // customLogger для форматирования логов с использованием LOG_TIME_FORMAT
