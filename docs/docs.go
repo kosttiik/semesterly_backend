@@ -270,7 +270,9 @@ const docTemplate = `{
                         "description": "errors: [error messages]",
                         "schema": {
                             "type": "object",
-                            "additionalProperties": true
+                            "additionalProperties": {
+                                "type": "string"
+                            }
                         }
                     }
                 }

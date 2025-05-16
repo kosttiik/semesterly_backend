@@ -267,7 +267,8 @@ paths:
         "500":
           description: 'errors: [error messages]'
           schema:
-            additionalProperties: true
+            additionalProperties:
+              type: string
             type: object
       summary: Вставка данных
       tags:
