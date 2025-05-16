@@ -50,6 +50,46 @@ func FetchJSON(ctx context.Context, url string, target any) error {
 	return nil
 }
 
+// FetchJSONWithCookies выполняет запрос к URL с куками и декодирует JSON в целевую структуру
+func FetchJSONWithCookies(ctx context.Context, url string, target any, cookies map[string]string) error {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return fmt.Errorf("error creating request for URL %s: %w", url, err)
+	}
+	if len(cookies) > 0 {
+		var cookieHeader string
+		for k, v := range cookies {
+			if len(cookieHeader) > 0 {
+				cookieHeader += "; "
+			}
+			cookieHeader += k + "=" + v
+		}
+		req.Header.Set("Cookie", cookieHeader)
+	}
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("error fetching URL %s: %w", url, err)
+	}
+	defer resp.Body.Close()
+
+	// Проверка Content-Type
+	if !strings.Contains(resp.Header.Get("Content-Type"), "application/json") {
+		return fmt.Errorf("invalid content type for URL %s", url)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("error reading response body: %w", err)
+	}
+
+	if err := json.Unmarshal(body, target); err != nil {
+		return fmt.Errorf("error unmarshalling JSON: %w", err)
+	}
+
+	return nil
+}
+
 // ExtractGroupUUIDs извлекает UUID групп из дерева
 func ExtractGroupUUIDs(children []models.Child) []string {
 	var uuids []string

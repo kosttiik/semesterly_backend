@@ -51,22 +51,37 @@ func (a *App) InsertGroupScheduleHandler(c echo.Context) error {
 	return c.JSON(http.StatusOK, map[string]string{"message": "Group schedule inserted successfully"})
 }
 
-// --- CHANGED: Add cookies argument ---
 func (a *App) processGroupScheduleData(ctx context.Context, uuid string, mu *sync.Mutex, errors *[]string, cookies map[string]string) error {
 	var schedule models.Schedule
 	var exams models.ExamResponse
 
-	scheduleURL := fmt.Sprintf("https://lks.bmstu.ru/lks-back/api/v1/schedules/groups/%s/public", uuid)
-	examURL := fmt.Sprintf("https://lks.bmstu.ru/lks-back/api/v1/schedules/exams/%s/public", uuid)
+	var scheduleURL, examURL string
+	if len(cookies) > 0 {
+		scheduleURL = fmt.Sprintf("https://lks.bmstu.ru/lks-back/api/v1/schedules/groups/%s/private", uuid)
+		examURL = fmt.Sprintf("https://lks.bmstu.ru/lks-back/api/v1/schedules/exams/%s/private", uuid)
+	} else {
+		scheduleURL = fmt.Sprintf("https://lks.bmstu.ru/lks-back/api/v1/schedules/groups/%s/public", uuid)
+		examURL = fmt.Sprintf("https://lks.bmstu.ru/lks-back/api/v1/schedules/exams/%s/public", uuid)
+	}
 
-	// --- CHANGED: Use FetchJSONWithCookies ---
-	if err := utils.FetchJSONWithCookies(ctx, scheduleURL, &schedule, cookies); err != nil {
+	var err error
+	if len(cookies) > 0 {
+		err = utils.FetchJSONWithCookies(ctx, scheduleURL, &schedule, cookies)
+	} else {
+		err = utils.FetchJSON(ctx, scheduleURL, &schedule)
+	}
+	if err != nil {
 		utils.AppendError(mu, errors, fmt.Sprintf("Failed to fetch schedule for group %s", uuid))
 		return err
 	}
 	log.Printf("Fetched schedule for group %s", uuid)
 
-	if err := utils.FetchJSONWithCookies(ctx, examURL, &exams, cookies); err != nil {
+	if len(cookies) > 0 {
+		err = utils.FetchJSONWithCookies(ctx, examURL, &exams, cookies)
+	} else {
+		err = utils.FetchJSON(ctx, examURL, &exams)
+	}
+	if err != nil {
 		utils.AppendError(mu, errors, fmt.Sprintf("Failed to fetch exams for group %s", uuid))
 		return err
 	}

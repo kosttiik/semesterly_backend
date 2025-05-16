@@ -22,21 +22,58 @@ import (
 // @Accept json
 // @Produce json
 // @Success 200 {object} map[string]string "message: Data inserted successfully"
-// @Failure 500 {object} map[string]interface{} "errors: [error messages]"
+// @Failure 500 {object} map[string]string "errors: [error messages]"
 // @Router /insert-data [post]
 func (a *App) InsertDataHandler(c echo.Context) error {
+	// Сначала пробуем получить куки из запроса
+	var req struct {
+		Cookies map[string]string `json:"cookies"`
+	}
+	if err := c.Bind(&req); err != nil {
+		log.Printf("Failed to bind request: %v", err)
+	}
+
+	if req.Cookies == nil {
+		req.Cookies = make(map[string]string)
+	}
+
+	headerCookies := c.Request().Cookies()
+	for _, cookie := range headerCookies {
+		if cookie.Name == "__portal3_login" || cookie.Name == "__portal3_info" {
+			req.Cookies[cookie.Name] = cookie.Value
+		}
+	}
+
+	usePrivate := req.Cookies["__portal3_login"] != "" && req.Cookies["__portal3_info"] != ""
+	log.Printf("Update mode: %s", map[bool]string{true: "private", false: "public"}[usePrivate])
+
 	structureURL := "https://lks.bmstu.ru/lks-back/api/v1/structure"
 	var structure models.Structure
 
 	ctx := c.Request().Context()
 
-	if err := utils.FetchJSON(ctx, structureURL, &structure); err != nil {
-		log.Printf("Failed to fetch structure: %v", err)
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to fetch structure"})
+	log.Printf("Fetching structure from URL: %s", structureURL)
+	var fetchErr error
+	if usePrivate {
+		fetchErr = utils.FetchJSONWithCookies(ctx, structureURL, &structure, req.Cookies)
+	} else {
+		fetchErr = utils.FetchJSON(ctx, structureURL, &structure)
+	}
+	if fetchErr != nil {
+		log.Printf("Failed to fetch structure: %v", fetchErr)
+		return c.JSON(http.StatusInternalServerError, map[string]string{
+			"error": fmt.Sprintf("Failed to fetch structure: %v", fetchErr),
+		})
 	}
 
 	groupUUIDs := utils.ExtractGroupUUIDs(structure.Data.Children)
 	log.Printf("Fetched %d group UUIDs", len(groupUUIDs))
+
+	if len(groupUUIDs) == 0 {
+		return c.JSON(http.StatusBadRequest, map[string]string{
+			"error": "No groups found in structure response",
+		})
+	}
 
 	totalItems := len(groupUUIDs)
 	if totalItems == 0 {
@@ -91,7 +128,7 @@ groupLoop:
 				}
 
 				// Передаём ctx дальше
-				if err := a.processGroupData(ctx, uuid, &mu, &errors); err != nil {
+				if err := a.processGroupData(ctx, uuid, &mu, &errors, req.Cookies); err != nil {
 					log.Printf("Failed to process data for group %s: %v", uuid, err)
 					utils.AppendError(&mu, &errors, fmt.Sprintf("Group %s: %v", uuid, err))
 				}
@@ -155,14 +192,30 @@ groupLoop:
 	return c.JSON(http.StatusOK, map[string]string{"message": "Data inserted successfully"})
 }
 
-func (a *App) processGroupData(ctx context.Context, uuid string, mu *sync.Mutex, errors *[]string) error {
+func (a *App) processGroupData(ctx context.Context, uuid string, mu *sync.Mutex, errors *[]string, cookies map[string]string) error {
+	usePrivate := cookies["__portal3_login"] != "" && cookies["__portal3_info"] != ""
+
 	var schedule models.Schedule
 	var exams models.ExamResponse
 
-	scheduleURL := fmt.Sprintf("https://lks.bmstu.ru/lks-back/api/v1/schedules/groups/%s/public", uuid)
-	examURL := fmt.Sprintf("https://lks.bmstu.ru/lks-back/api/v1/schedules/exams/%s/public", uuid)
+	var scheduleURL, examURL string
+	if usePrivate {
+		scheduleURL = fmt.Sprintf("https://lks.bmstu.ru/lks-back/api/v1/schedules/groups/%s/private", uuid)
+		examURL = fmt.Sprintf("https://lks.bmstu.ru/lks-back/api/v1/schedules/exams/%s/private", uuid)
+	} else {
+		scheduleURL = fmt.Sprintf("https://lks.bmstu.ru/lks-back/api/v1/schedules/groups/%s/public", uuid)
+		examURL = fmt.Sprintf("https://lks.bmstu.ru/lks-back/api/v1/schedules/exams/%s/public", uuid)
+	}
 
-	if err := utils.FetchJSON(ctx, scheduleURL, &schedule); err != nil {
+	log.Printf("Fetching schedule: %s", scheduleURL)
+
+	var err error
+	if usePrivate {
+		err = utils.FetchJSONWithCookies(ctx, scheduleURL, &schedule, cookies)
+	} else {
+		err = utils.FetchJSON(ctx, scheduleURL, &schedule)
+	}
+	if err != nil {
 		utils.AppendError(mu, errors, fmt.Sprintf("Failed to fetch schedule for group %s", uuid))
 		return err
 	}
@@ -171,13 +224,14 @@ func (a *App) processGroupData(ctx context.Context, uuid string, mu *sync.Mutex,
 		return ctx.Err()
 	}
 
-	if err := utils.FetchJSON(ctx, examURL, &exams); err != nil {
+	if usePrivate {
+		err = utils.FetchJSONWithCookies(ctx, examURL, &exams, cookies)
+	} else {
+		err = utils.FetchJSON(ctx, examURL, &exams)
+	}
+	if err != nil {
 		utils.AppendError(mu, errors, fmt.Sprintf("Failed to fetch exams for group %s", uuid))
 		return err
-	}
-
-	if ctx.Err() != nil {
-		return ctx.Err()
 	}
 
 	// Получаем существующие записи расписания для сравнения
