@@ -112,17 +112,12 @@ func (a *App) RegisterRoutes(e *echo.Echo) {
 		timeFormat = "15:04:05 02.01.2006"
 	}
 
-	e.Use(middleware.LoggerWithConfig(middleware.LoggerConfig{
-		Format: "[${time_custom}] | ${status} | ${method} ${uri} | ${remote_ip} | ${latency_human}" +
-			"\n   Error: ${error}\n",
-		CustomTimeFormat: timeFormat,
-		Output:           os.Stdout,
-	}))
+	e.Use(customLoggerMiddleware)
 
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
 		AllowOrigins: []string{
-			"http://localhost:5173",
-			"http://127.0.0.1:5173",
+			"http://localhost:*",
+			"http://127.0.0.1:*",
 		},
 		AllowMethods: []string{echo.GET, echo.POST, echo.PUT, echo.DELETE, echo.OPTIONS},
 		AllowHeaders: []string{
@@ -184,4 +179,35 @@ func (cl *customLogger) Write(p []byte) (n int, err error) {
 		return 0, err
 	}
 	return len(p), nil
+}
+
+func customLoggerMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		start := time.Now()
+		err := next(c) // Выполняем следующий обработчик
+		stop := time.Now()
+		latency := stop.Sub(start)
+
+		// Логируем основную информацию о запросе
+		// Получаем формат времени из переменной окружения или используем значение по умолчанию
+		timeFormat := os.Getenv("LOG_TIME_FORMAT")
+		if timeFormat == "" {
+			timeFormat = "15:04:05 02.01.2006"
+		}
+		log.Printf("[%s] | %d | %s %s | %s | %s",
+			start.Format(timeFormat),
+			c.Response().Status,
+			c.Request().Method,
+			c.Request().RequestURI,
+			c.RealIP(),
+			latency,
+		)
+
+		// Логируем ошибку, только если она есть
+		if err != nil {
+			log.Printf("Error: %v", err)
+		}
+
+		return err
+	}
 }

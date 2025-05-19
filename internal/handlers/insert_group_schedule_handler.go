@@ -24,7 +24,6 @@ import (
 // @Router /insert-group-schedule/{uuid} [post]
 func (a *App) InsertGroupScheduleHandler(c echo.Context) error {
 	uuid := c.Param("uuid")
-	// --- NEW: Parse cookies from frontend ---
 	var req struct {
 		Cookies map[string]string `json:"cookies"`
 	}
