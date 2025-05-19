@@ -149,8 +149,9 @@ func (a *App) LoginExternalHandler(c echo.Context) error {
 	location := loginResp.Header.Get("Location")
 	if !strings.Contains(location, "ticket=") {
 		b, _ := io.ReadAll(loginResp.Body)
-		log.Printf("Login failed: %s", string(b))
-		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Login failed", "details": string(b)})
+		errMsg := stripHTML(string(b))
+		log.Printf("Login failed: %s", errMsg)
+		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Login failed", "details": errMsg})
 	}
 
 	// Обновляем куки из ответа логина
@@ -203,6 +204,7 @@ func (a *App) LoginExternalHandler(c echo.Context) error {
 		}
 		location = "https://proxy.bmstu.ru:8443" + location
 	}
+
 	log.Printf("OAuth2 authorize URL: %s", location)
 
 	authorizeReq, err := http.NewRequestWithContext(ctx, "GET", location, nil)
@@ -281,15 +283,18 @@ func (a *App) LoginExternalHandler(c echo.Context) error {
 		if err != nil {
 			return nil, err
 		}
+
 		req.Header.Set("User-Agent", commonHeaders["User-Agent"])
 		req.Header.Set("Accept", "application/json")
 		for _, ck := range apiCookies {
 			req.AddCookie(ck)
 		}
+
 		resp, err := client.Do(req)
 		if err != nil {
 			return nil, err
 		}
+
 		defer resp.Body.Close()
 		return io.ReadAll(resp.Body)
 	}
@@ -301,6 +306,7 @@ func (a *App) LoginExternalHandler(c echo.Context) error {
 		log.Printf("Failed to fetch profile: %v", err)
 		return c.JSON(http.StatusBadGateway, map[string]string{"error": "Failed to fetch profile"})
 	}
+
 	if err := json.Unmarshal(profileBody, &profile); err != nil {
 		log.Printf("Failed to parse profile: %v", err)
 		return c.JSON(http.StatusBadGateway, map[string]string{"error": "Failed to parse profile"})
@@ -313,6 +319,7 @@ func (a *App) LoginExternalHandler(c echo.Context) error {
 		log.Printf("Failed to fetch photo: %v", err)
 		return c.JSON(http.StatusBadGateway, map[string]string{"error": "Failed to fetch photo"})
 	}
+
 	if err := json.Unmarshal(photoBody, &photo); err != nil {
 		log.Printf("Failed to parse photo: %v", err)
 		return c.JSON(http.StatusBadGateway, map[string]string{"error": "Failed to parse photo"})
@@ -334,10 +341,42 @@ func extractExecution(html string) string {
 	if idx == -1 {
 		return ""
 	}
+
 	start := idx + len(marker)
 	end := strings.Index(html[start:], `"`)
 	if end == -1 {
 		return ""
 	}
+
 	return html[start : start+end]
+}
+
+// stripHTML возвращает только текстовое сообщение об ошибке из HTML страницы
+func stripHTML(html string) string {
+	// Ищем сообщение об ошибке в тексте
+	const errorMarker = `class="errors"`
+	idx := strings.Index(html, errorMarker)
+	if idx == -1 {
+		return "Unknown error"
+	}
+
+	// Ищем текст после маркера ошибки
+	start := strings.Index(html[idx:], ">")
+	if start == -1 {
+		return "Unknown error"
+	}
+
+	start = idx + start + 1
+	end := strings.Index(html[start:], "</")
+	if end == -1 {
+		return "Unknown error"
+	}
+
+	// Возвращаем только текст ошибки, обрезанный до 100 символов
+	errorText := strings.TrimSpace(html[start : start+end])
+	if len(errorText) > 100 {
+		errorText = errorText[:100] + "..."
+	}
+
+	return errorText
 }
