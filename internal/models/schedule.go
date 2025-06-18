@@ -23,12 +23,12 @@ type ScheduleItem struct {
 	Day         int          `json:"day"`
 	Time        int          `json:"time"`
 	Week        string       `json:"week"`
+	StartTime   string       `json:"startTime"`
+	EndTime     string       `json:"endTime"`
 	Groups      []Group      `json:"groups" gorm:"many2many:schedule_item_groups;"`
 	Stream      string       `json:"stream"`
-	EndTime     string       `json:"endTime"`
 	Teachers    []Teacher    `json:"teachers" gorm:"many2many:schedule_item_teachers;"`
 	Audiences   []Audience   `json:"audiences" gorm:"many2many:schedule_item_audiences;"`
-	StartTime   string       `json:"startTime"`
 	Disciplines []Discipline `json:"disciplines" gorm:"many2many:schedule_item_disciplines;"`
 	// Временное поле для парсинга JSON
 	DisciplineRaw Discipline `json:"discipline" gorm:"-"`
@@ -40,34 +40,28 @@ func (s ScheduleItem) MarshalJSON() ([]byte, error) {
 	type Alias ScheduleItem
 	return json.Marshal(&struct {
 		ID          uint         `json:"id"`
-		// CreatedAt   time.Time    `json:"-"`
-		// UpdatedAt   time.Time    `json:"-"`
-		// DeletedAt   time.Time    `json:"-"`
 		Day         int          `json:"day"`
 		Time        int          `json:"time"`
 		Week        string       `json:"week"`
+		StartTime   string       `json:"startTime"`
+		EndTime     string       `json:"endTime"`
 		Groups      []Group      `json:"groups"`
 		Stream      string       `json:"stream"`
-		EndTime     string       `json:"endTime"`
 		Teachers    []Teacher    `json:"teachers"`
 		Audiences   []Audience   `json:"audiences"`
-		StartTime   string       `json:"startTime"`
 		Disciplines []Discipline `json:"disciplines"`
 		Permission  string       `json:"permission"`
 	}{
 		ID:          s.ID,
-		// CreatedAt:   s.CreatedAt,
-		// UpdatedAt:   s.UpdatedAt,
-		// DeletedAt:   s.DeletedAt,
 		Day:         s.Day,
 		Time:        s.Time,
 		Week:        s.Week,
+		StartTime:   s.StartTime,
+		EndTime:     s.EndTime,
 		Groups:      s.Groups,
 		Stream:      s.Stream,
-		EndTime:     s.EndTime,
 		Teachers:    s.Teachers,
 		Audiences:   s.Audiences,
-		StartTime:   s.StartTime,
 		Disciplines: s.Disciplines,
 		Permission:  s.Permission,
 	})

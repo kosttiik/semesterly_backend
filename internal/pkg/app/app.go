@@ -112,16 +112,20 @@ func (a *App) RegisterRoutes(e *echo.Echo) {
 		timeFormat = "15:04:05 02.01.2006"
 	}
 
-	e.Use(middleware.LoggerWithConfig(middleware.LoggerConfig{
-		Format: "[${time_custom}] | ${status} | ${method} ${uri} | ${remote_ip} | ${latency_human}" +
-			"\n   Error: ${error}\n",
-		CustomTimeFormat: timeFormat,
-		Output:           os.Stdout,
-	}))
+	e.Use(customLoggerMiddleware)
 
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
-		AllowOrigins: []string{"*"},
-		AllowMethods: []string{echo.GET, echo.POST, echo.PUT, echo.DELETE},
+		AllowOrigins: []string{
+			"http://localhost:*",
+			"http://127.0.0.1:*",
+		},
+		AllowMethods: []string{echo.GET, echo.POST, echo.PUT, echo.DELETE, echo.OPTIONS},
+		AllowHeaders: []string{
+			"Content-Type", "Authorization", echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept,
+			"x-cookie-jsessionid", "x-cookie-__portal3_login", "x-cookie-__portal3_info",
+			"x-cookie-width", "x-cookie-tgc", "x-cookie-_csrf",
+		},
+		AllowCredentials: true,
 	}))
 
 	h := &handlers.App{
@@ -132,17 +136,35 @@ func (a *App) RegisterRoutes(e *echo.Echo) {
 	// Документация Swagger
 	e.GET("/docs/*", echoSwagger.WrapHandler)
 
-	e.GET("/api/v1/hello", h.HelloHandler)
+	// Проверка соединения
+	e.GET("/api/v1/ping", h.PingHandler)
+
+	// Вставка всех записей расписания, отдельной группы
 	e.POST("/api/v1/insert-data", h.InsertDataHandler)
 	e.POST("/api/v1/insert-group-schedule/:uuid", h.InsertGroupScheduleHandler)
 
-	e.GET("/api/v1/get-groups", h.GetGroupsHandler)
+	// Удаление всех записей расписания
+	e.POST("/api/v1/clear-data", h.ClearDataHandler)
+
+	// Получение всех записей расписания
 	e.GET("/api/v1/get-data", h.GetDataHandler)
+
+	// Получение списка групп и расписания группы
+	e.GET("/api/v1/get-groups", h.GetGroupsHandler)
 	e.GET("/api/v1/get-group-schedule/:uuid", h.GetGroupScheduleHandler)
 
+	// Получение списка преподавателей и расписания преподавателя
+	e.GET("/api/v1/get-teachers", h.GetTeachersHandler)
+	e.GET("/api/v1/get-teacher-schedule/:uuid", h.GetTeacherScheduleHandler)
+
+	// Запись расписания в файл (CSV)
 	e.POST("/api/v1/write-schedule", h.WriteScheduleToFileHandler)
 
+	// WebSocket
 	e.GET("/ws", h.HandleWebSocket)
+
+	// Логин в LKS BMSTU
+	e.POST("/api/v1/login-external", h.LoginExternalHandler)
 }
 
 // customLogger для форматирования логов с использованием LOG_TIME_FORMAT
@@ -157,4 +179,35 @@ func (cl *customLogger) Write(p []byte) (n int, err error) {
 		return 0, err
 	}
 	return len(p), nil
+}
+
+func customLoggerMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		start := time.Now()
+		err := next(c) // Выполняем следующий обработчик
+		stop := time.Now()
+		latency := stop.Sub(start)
+
+		// Логируем основную информацию о запросе
+		// Получаем формат времени из переменной окружения или используем значение по умолчанию
+		timeFormat := os.Getenv("LOG_TIME_FORMAT")
+		if timeFormat == "" {
+			timeFormat = "15:04:05 02.01.2006"
+		}
+		log.Printf("[%s] | %d | %s %s | %s | %s",
+			start.Format(timeFormat),
+			c.Response().Status,
+			c.Request().Method,
+			c.Request().RequestURI,
+			c.RealIP(),
+			latency,
+		)
+
+		// Логируем ошибку, только если она есть
+		if err != nil {
+			log.Printf("Error: %v", err)
+		}
+
+		return err
+	}
 }

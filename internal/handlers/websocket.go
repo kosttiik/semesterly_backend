@@ -16,6 +16,7 @@ type ProgressUpdate struct {
 	CurrentItem    int     `json:"currentItem"`
 	TotalItems     int     `json:"totalItems"`
 	CompletedItems int     `json:"completedItems"`
+	Message        string  `json:"message"`
 	Percentage     float64 `json:"percentage"`
 	ETA            string  `json:"eta"`
 }
@@ -98,6 +99,27 @@ func (h *WebSocketHub) BroadcastProgress(update ProgressUpdate) {
 	default:
 		log.Printf("Broadcast channel is full, progress update dropped")
 	}
+}
+
+func (h *WebSocketHub) CloseAll() {
+	h.mu.Lock()
+	clients := make([]*Client, 0, len(h.clients))
+	for client := range h.clients {
+		clients = append(clients, client)
+	}
+	h.clients = make(map[*Client]bool)
+	h.mu.Unlock()
+
+	var wg sync.WaitGroup
+	for _, client := range clients {
+		wg.Add(1)
+		go func(c *Client) {
+			defer wg.Done()
+			c.conn.Close()
+			close(c.send)
+		}(client)
+	}
+	wg.Wait()
 }
 
 func (a *App) HandleWebSocket(c echo.Context) error {

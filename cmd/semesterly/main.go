@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"log"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
@@ -40,31 +41,25 @@ func main() {
 
 	// Запуск сервера в горутине
 	go func() {
-		if err := e.Start(":" + port); err != nil {
+		if err := e.Start(":" + port); err != nil && err != http.ErrServerClosed {
 			errChan <- err
 		}
 	}()
 
-	// Обработка завершения приложения
-	handleShutdown(e, errChan)
-}
-
-func handleShutdown(e *echo.Echo, errChan chan error) {
 	// Ловим сигналы завершения
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 
-	// Ожидание сигнала завершения или ошибки от сервера
 	select {
 	case err := <-errChan:
-		log.Fatalf("Shutting down the server due to error: %v", err)
-	case <-quit:
-		log.Println("Shutting down server...")
-		if err := e.Shutdown(context.Background()); err != nil {
-			log.Fatalf("Error shutting down server: %v", err)
+		log.Fatalf("Ошибка сервера: %v", err)
+	case sig := <-quit:
+		log.Printf("Получен сигнал завершения: %v. Завершаем работу сервера...", sig)
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		if err := e.Shutdown(ctx); err != nil {
+			log.Fatalf("Ошибка при завершении сервера: %v", err)
 		}
+		log.Println("Сервер успешно завершил работу.")
 	}
-
-	// Чуть времени на завершение
-	time.Sleep(1 * time.Second)
 }

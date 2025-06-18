@@ -19,7 +19,7 @@ import (
 func (a *App) GetGroupsHandler(c echo.Context) error {
 	var groups []models.Group
 
-	if err := a.DB.Find(&groups).Error; err != nil {
+	if err := a.DB.Order("name").Find(&groups).Error; err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to fetch groups"})
 	}
 

@@ -9,6 +9,41 @@
     "host": "localhost:8080",
     "basePath": "/api/v1",
     "paths": {
+        "/clear-data": {
+            "post": {
+                "description": "Удаляет все данные из всех таблиц базы данных",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "ClearData"
+                ],
+                "summary": "Очистка базы данных",
+                "responses": {
+                    "200": {
+                        "description": "message: Database cleared successfully",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "error: Failed to clear database",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/get-data": {
             "get": {
                 "description": "Возвращает данные расписания из базы данных в формате JSON",
@@ -123,9 +158,9 @@
                 }
             }
         },
-        "/hello": {
+        "/get-teacher-schedule/{uuid}": {
             "get": {
-                "description": "Проверяет, работает ли сервер и есть ли подключение к базе данных",
+                "description": "Возвращает данные расписания конкретного преподавателя из базы данных в формате JSON",
                 "consumes": [
                     "application/json"
                 ],
@@ -133,14 +168,70 @@
                     "application/json"
                 ],
                 "tags": [
-                    "Hello"
+                    "GetData"
                 ],
-                "summary": "Проверка подключения",
+                "summary": "Получение расписания преподавателя",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "UUID преподавателя",
+                        "name": "uuid",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
                 "responses": {
                     "200": {
-                        "description": "Hello, World!",
+                        "description": "Список элементов расписания",
                         "schema": {
-                            "type": "string"
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/models.ScheduleItem"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "error: Failed to fetch schedule items",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/get-teachers": {
+            "get": {
+                "description": "Возвращает данные всех преподавателей из базы данных в формате JSON",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "GetTeachers"
+                ],
+                "summary": "Получение списка преподавателей",
+                "responses": {
+                    "200": {
+                        "description": "Список преподавателей",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/models.Teacher"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "error: Failed to fetch teachers",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
                         }
                     }
                 }
@@ -173,7 +264,9 @@
                         "description": "errors: [error messages]",
                         "schema": {
                             "type": "object",
-                            "additionalProperties": true
+                            "additionalProperties": {
+                                "type": "string"
+                            }
                         }
                     }
                 }
@@ -216,6 +309,29 @@
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/ping": {
+            "get": {
+                "description": "Проверяет, работает ли сервер и есть ли подключение к базе данных",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Ping"
+                ],
+                "summary": "Проверка подключения",
+                "responses": {
+                    "200": {
+                        "description": "Pong! Connected to the database successfully.",
+                        "schema": {
+                            "type": "string"
                         }
                     }
                 }

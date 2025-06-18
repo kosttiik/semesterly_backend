@@ -24,15 +24,29 @@ services:
       - POSTGRES_PASSWORD=${DB_PASSWORD}
       - POSTGRES_DB=${DB_NAME}
       - TZ=${TIMEZONE}
+      - DB_PORT=${DB_PORT}
     ports:
-      - "${DB_PORT}:5432"
+      - "${DB_PORT}:${DB_PORT}"
+    command: ["postgres", "-p", "${DB_PORT}"]
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER}"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -p ${DB_PORT}"]
       interval: 5s
       timeout: 3s
       retries: 5
+    networks:
+      - app-network
+
+  frontend:
+    build:
+      context: ../semesterly_frontend
+      dockerfile: Dockerfile
+    ports:
+      - "5173:5173"
+    depends_on:
+      app:
+        condition: service_started
     networks:
       - app-network
 

@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net/http"
@@ -23,17 +24,22 @@ import (
 // @Router /insert-group-schedule/{uuid} [post]
 func (a *App) InsertGroupScheduleHandler(c echo.Context) error {
 	uuid := c.Param("uuid")
+	var req struct {
+		Cookies map[string]string `json:"cookies"`
+	}
+	_ = c.Bind(&req)
 	var wg sync.WaitGroup
 	var mu sync.Mutex
 	errors := make([]string, 0)
+	ctx := c.Request().Context()
 
 	wg.Add(1)
-	go func(uuid string) {
+	go func(uuid string, cookies map[string]string) {
 		defer wg.Done()
-		if err := a.processGroupScheduleData(uuid, &mu, &errors); err != nil {
+		if err := a.processGroupScheduleData(ctx, uuid, &mu, &errors, cookies); err != nil {
 			log.Printf("Failed to process data for group %s: %v", uuid, err)
 		}
-	}(uuid)
+	}(uuid, req.Cookies)
 
 	wg.Wait()
 
@@ -44,21 +50,37 @@ func (a *App) InsertGroupScheduleHandler(c echo.Context) error {
 	return c.JSON(http.StatusOK, map[string]string{"message": "Group schedule inserted successfully"})
 }
 
-// processGroupScheduleData обрабатывает данные расписания и экзаменов для группы
-func (a *App) processGroupScheduleData(uuid string, mu *sync.Mutex, errors *[]string) error {
+func (a *App) processGroupScheduleData(ctx context.Context, uuid string, mu *sync.Mutex, errors *[]string, cookies map[string]string) error {
 	var schedule models.Schedule
 	var exams models.ExamResponse
 
-	scheduleURL := fmt.Sprintf("https://lks.bmstu.ru/lks-back/api/v1/schedules/groups/%s/public", uuid)
-	examURL := fmt.Sprintf("https://lks.bmstu.ru/lks-back/api/v1/schedules/exams/%s/public", uuid)
+	var scheduleURL, examURL string
+	if len(cookies) > 0 {
+		scheduleURL = fmt.Sprintf("https://lks.bmstu.ru/lks-back/api/v1/schedules/groups/%s/private", uuid)
+		examURL = fmt.Sprintf("https://lks.bmstu.ru/lks-back/api/v1/schedules/exams/%s/private", uuid)
+	} else {
+		scheduleURL = fmt.Sprintf("https://lks.bmstu.ru/lks-back/api/v1/schedules/groups/%s/public", uuid)
+		examURL = fmt.Sprintf("https://lks.bmstu.ru/lks-back/api/v1/schedules/exams/%s/public", uuid)
+	}
 
-	if err := utils.FetchJSON(scheduleURL, &schedule); err != nil {
+	var err error
+	if len(cookies) > 0 {
+		err = utils.FetchJSONWithCookies(ctx, scheduleURL, &schedule, cookies)
+	} else {
+		err = utils.FetchJSON(ctx, scheduleURL, &schedule)
+	}
+	if err != nil {
 		utils.AppendError(mu, errors, fmt.Sprintf("Failed to fetch schedule for group %s", uuid))
 		return err
 	}
 	log.Printf("Fetched schedule for group %s", uuid)
 
-	if err := utils.FetchJSON(examURL, &exams); err != nil {
+	if len(cookies) > 0 {
+		err = utils.FetchJSONWithCookies(ctx, examURL, &exams, cookies)
+	} else {
+		err = utils.FetchJSON(ctx, examURL, &exams)
+	}
+	if err != nil {
 		utils.AppendError(mu, errors, fmt.Sprintf("Failed to fetch exams for group %s", uuid))
 		return err
 	}

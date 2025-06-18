@@ -8,16 +8,18 @@ import (
 	"gorm.io/gorm"
 )
 
-// GetDataHandler отправляет JSON со всем расписанием из базы данных
-// @Summary Получение расписания
-// @Description Возвращает данные расписания из базы данных в формате JSON
+// GetTeacherScheduleHandler отправляет JSON с расписанием конкретного преподавателя из базы данных
+// @Summary Получение расписания преподавателя
+// @Description Возвращает данные расписания конкретного преподавателя из базы данных в формате JSON
 // @Tags GetData
 // @Accept json
 // @Produce json
+// @Param uuid path string true "UUID преподавателя"
 // @Success 200 {array} models.ScheduleItem "Список элементов расписания"
 // @Failure 500 {object} map[string]string "error: Failed to fetch schedule items"
-// @Router /get-data [get]
-func (a *App) GetDataHandler(c echo.Context) error {
+// @Router /get-teacher-schedule/{uuid} [get]
+func (a *App) GetTeacherScheduleHandler(c echo.Context) error {
+	uuid := c.Param("uuid")
 	var scheduleItems []models.ScheduleItem
 
 	err := a.DB.Transaction(func(tx *gorm.DB) error {
@@ -26,6 +28,9 @@ func (a *App) GetDataHandler(c echo.Context) error {
 			Preload("Teachers").
 			Preload("Audiences").
 			Preload("Disciplines").
+			Joins("JOIN schedule_item_teachers ON schedule_item_teachers.schedule_item_id = schedule_items.id").
+			Joins("JOIN teachers ON teachers.id = schedule_item_teachers.teacher_id").
+			Where("teachers.uuid = ?", uuid).
 			Find(&scheduleItems).Error; err != nil {
 			return err
 		}
